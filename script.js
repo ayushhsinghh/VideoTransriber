@@ -135,11 +135,13 @@ function upload() {
   form.append('file', file);
 
   const language = document.getElementById('language').value;
+  const model = document.getElementById('model').value;
   const translate = document.getElementById('translate').checked;
 
   if (language) {
     form.append('language', language);
   }
+  form.append('model', model);
   form.append('translate', translate ? 'on' : 'off');
 
   const uploadBtn = document.getElementById('uploadBtn');
@@ -306,6 +308,10 @@ async function checkStatus() {
       languageDisplay = data.language.toUpperCase();
     }
     document.getElementById('languageValue').textContent = languageDisplay;
+
+    // Update model display
+    const modelDisplay = (data.model || 'base').toUpperCase();
+    document.getElementById('modelValue').textContent = modelDisplay;
 
     // Update translate display
     document.getElementById('translateValue').textContent = data.translate ? 'Yes' : 'No';
