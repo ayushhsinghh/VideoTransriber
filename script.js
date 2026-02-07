@@ -1,5 +1,5 @@
 // Configuration - adjust these if deploying on a separate server
-const API_BASE_URL = window.location.origin || 'http://localhost:8000';
+const API_BASE_URL = 'http://80.225.207.201:8005';
 
 let jobId = null;
 let currentPage = 'home'; // 'home', 'upload', 'status', 'jobs'
