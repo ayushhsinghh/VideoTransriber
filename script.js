@@ -1,5 +1,5 @@
 // Configuration - adjust these if deploying on a separate server
-const API_BASE_URL = 'http://80.225.207.201:8005';
+const API_BASE_URL = 'https://api.ayush.ltd';
 
 let jobId = null;
 let currentPage = 'home'; // 'home', 'upload', 'status', 'jobs'
