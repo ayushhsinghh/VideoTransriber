@@ -3,6 +3,8 @@ const API_BASE_URL = 'https://api.ayush.ltd';
 
 let jobId = null;
 let currentPage = 'home'; // 'home', 'upload', 'status', 'jobs'
+let currentXHR = null; // Track ongoing XHR for cancellation
+let uploadStartTime = null; // Track upload start time for speed calculation
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
@@ -114,7 +116,7 @@ function hideAllPages() {
   });
 }
 
-async function upload() {
+function upload() {
   const fileInput = document.getElementById('file');
   const file = fileInput.files[0];
 
@@ -123,10 +125,11 @@ async function upload() {
     return;
   }
 
-  if (file.size > 1000 * 1024 * 1024) { // 1GB limit
-    showMessage('File size must be less than 1GB', 'error');
-    return;
-  }
+  // Removed file size limit - now supports up to available disk space
+  // if (file.size > 1000 * 1024 * 1024) { // 1GB limit
+  //   showMessage('File size must be less than 1GB', 'error');
+  //   return;
+  // }
 
   const form = new FormData();
   form.append('file', file);
@@ -140,37 +143,118 @@ async function upload() {
   form.append('translate', translate ? 'on' : 'off');
 
   const uploadBtn = document.getElementById('uploadBtn');
-  uploadBtn.disabled = true;
-  uploadBtn.innerHTML = '<span class="spinner"></span>Uploading...';
+  const cancelBtn = document.getElementById('cancelUploadBtn');
+  const progressSection = document.getElementById('uploadProgressSection');
 
-  showMessage('Uploading video file...', 'info');
+  uploadBtn.style.display = 'none';
+  cancelBtn.style.display = 'inline-block';
+  progressSection.style.display = 'block';
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/jobs`, {
-      method: 'POST',
-      body: form
-    });
+  hideMessage();
+  uploadStartTime = Date.now();
 
-    if (!res.ok) {
-      throw new Error(`Upload failed with status ${res.status}`);
+  const xhr = new XMLHttpRequest();
+  currentXHR = xhr;
+
+  // Progress event
+  xhr.upload.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const percentComplete = (e.loaded / e.total) * 100;
+      const uploadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+      const totalMB = (e.total / (1024 * 1024)).toFixed(2);
+      const elapsedSeconds = (Date.now() - uploadStartTime) / 1000;
+      const uploadSpeedMBps = (e.loaded / (1024 * 1024)) / elapsedSeconds;
+      
+      // Calculate ETA
+      let etaText = '--:--';
+      if (uploadSpeedMBps > 0) {
+        const remainingBytes = e.total - e.loaded;
+        const remainingSeconds = remainingBytes / (uploadSpeedMBps * 1024 * 1024);
+        const minutes = Math.floor(remainingSeconds / 60);
+        const seconds = Math.floor(remainingSeconds % 60);
+        etaText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      }
+
+      document.getElementById('uploadProgressFill').style.width = percentComplete + '%';
+      document.getElementById('uploadPercentDisplay').textContent = percentComplete.toFixed(1) + '%';
+      document.getElementById('uploadedSize').textContent = uploadedMB + ' MB';
+      document.getElementById('totalSize').textContent = totalMB + ' MB';
+      document.getElementById('uploadSpeed').textContent = uploadSpeedMBps.toFixed(2) + ' MB/s';
+      document.getElementById('uploadETA').textContent = etaText;
     }
+  });
 
-    const data = await res.json();
-    jobId = data.job_id;
+  // Completion
+  xhr.addEventListener('load', () => {
+    if (xhr.status === 200) {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        jobId = data.job_id;
 
-    showStatusPage();
-    showMessage(`✓ Job created successfully! Transcription is starting...`, 'success');
-    uploadBtn.disabled = false;
-    uploadBtn.innerHTML = 'Upload & Transcribe';
+        progressSection.style.display = 'none';
+        cancelBtn.style.display = 'none';
+        uploadBtn.style.display = 'inline-block';
+        uploadBtn.innerHTML = 'Upload & Transcribe';
 
-    // Fetch initial status
-    await checkStatus();
+        showStatusPage();
+        showMessage(`✓ Job created successfully! Transcription is starting...`, 'success');
 
-  } catch (error) {
-    showMessage(`Error: ${error.message}`, 'error');
-    uploadBtn.disabled = false;
-    uploadBtn.innerHTML = 'Upload & Transcribe';
+        // Fetch initial status
+        checkStatus();
+      } catch (e) {
+        showMessage(`Error parsing response: ${e.message}`, 'error');
+        resetUploadUI();
+      }
+    } else {
+      showMessage(`Upload failed with status ${xhr.status}`, 'error');
+      resetUploadUI();
+    }
+    currentXHR = null;
+  });
+
+  // Error handling
+  xhr.addEventListener('error', () => {
+    showMessage('Network error during upload', 'error');
+    resetUploadUI();
+    currentXHR = null;
+  });
+
+  xhr.addEventListener('abort', () => {
+    showMessage('Upload cancelled', 'warning');
+    resetUploadUI();
+    currentXHR = null;
+  });
+
+  // Send request
+  xhr.open('POST', `${API_BASE_URL}/api/jobs`, true);
+  xhr.send(form);
+}
+
+function cancelUpload() {
+  if (currentXHR) {
+    currentXHR.abort();
+    showMessage('Upload cancelled', 'warning');
+    resetUploadUI();
   }
+}
+
+function resetUploadUI() {
+  const uploadBtn = document.getElementById('uploadBtn');
+  const cancelBtn = document.getElementById('cancelUploadBtn');
+  const progressSection = document.getElementById('uploadProgressSection');
+
+  uploadBtn.style.display = 'inline-block';
+  uploadBtn.innerHTML = 'Upload & Transcribe';
+  cancelBtn.style.display = 'none';
+  progressSection.style.display = 'none';
+
+  // Reset progress
+  document.getElementById('uploadProgressFill').style.width = '0%';
+  document.getElementById('uploadPercentDisplay').textContent = '0%';
+  document.getElementById('uploadedSize').textContent = '0 MB';
+  document.getElementById('totalSize').textContent = '0 MB';
+  document.getElementById('uploadSpeed').textContent = '0 MB/s';
+  document.getElementById('uploadETA').textContent = '--:--';
 }
 
 function showStatusPage() {

@@ -83,8 +83,42 @@
         <label for="translate" class="checkbox-label">Translate subtitles to English</label>
       </div>
 
+      <!-- Upload Progress Section -->
+      <div id="uploadProgressSection" class="upload-progress-section" style="display: none; margin: 20px 0;">
+        <div class="progress-header">
+          <div class="progress-title">Uploading...</div>
+          <div class="progress-percent" id="uploadPercentDisplay">0%</div>
+        </div>
+        
+        <div class="progress-bar-container">
+          <div class="progress-bar-background">
+            <div class="progress-bar-fill" id="uploadProgressFill"></div>
+          </div>
+        </div>
+        
+        <div class="progress-stats">
+          <div class="stat-item">
+            <span class="stat-label">Uploaded:</span>
+            <span class="stat-value" id="uploadedSize">0 MB</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total:</span>
+            <span class="stat-value" id="totalSize">0 MB</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Speed:</span>
+            <span class="stat-value" id="uploadSpeed">0 MB/s</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">ETA:</span>
+            <span class="stat-value" id="uploadETA">--:--</span>
+          </div>
+        </div>
+      </div>
+
       <div class="button-group">
         <button id="uploadBtn" class="btn-primary" onclick="upload()">Upload & Transcribe</button>
+        <button id="cancelUploadBtn" class="btn-secondary" onclick="cancelUpload()" style="display: none;">Cancel Upload</button>
       </div>
     </div>
 
