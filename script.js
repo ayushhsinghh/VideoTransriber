@@ -1,256 +1,420 @@
-// Configuration - adjust these if deploying on a separate server
+// ═══════════════════════════════════════════════════════════════════════
+//  SubForge — Frontend Controller
+// ═══════════════════════════════════════════════════════════════════════
+
 const API_BASE_URL = 'https://api.ayush.ltd';
 
 let jobId = null;
-let currentPage = 'home'; // 'home', 'upload', 'status', 'jobs'
-let currentXHR = null; // Track ongoing XHR for cancellation
-let uploadStartTime = null; // Track upload start time for speed calculation
+let currentPage = 'home';
+let currentXHR = null;
+let uploadStartTime = null;
 
-// Initialize the app
-document.addEventListener('DOMContentLoaded', () => {
+// ── Initialisation ──────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function () {
   initializeEventListeners();
   showHomePage();
 });
 
+// ── Language data (all Whisper-supported languages) ─────────────────────
+
+var LANGUAGES = [
+  { code: '', label: 'Auto-detect' }, { code: 'af', label: 'Afrikaans' }, { code: 'ar', label: 'Arabic' },
+  { code: 'hy', label: 'Armenian' }, { code: 'az', label: 'Azerbaijani' }, { code: 'be', label: 'Belarusian' },
+  { code: 'bs', label: 'Bosnian' }, { code: 'bg', label: 'Bulgarian' }, { code: 'ca', label: 'Catalan' },
+  { code: 'zh', label: 'Chinese' }, { code: 'hr', label: 'Croatian' }, { code: 'cs', label: 'Czech' },
+  { code: 'da', label: 'Danish' }, { code: 'nl', label: 'Dutch' }, { code: 'en', label: 'English' },
+  { code: 'et', label: 'Estonian' }, { code: 'fi', label: 'Finnish' }, { code: 'fr', label: 'French' },
+  { code: 'gl', label: 'Galician' }, { code: 'de', label: 'German' }, { code: 'el', label: 'Greek' },
+  { code: 'he', label: 'Hebrew' }, { code: 'hi', label: 'Hindi' }, { code: 'hu', label: 'Hungarian' },
+  { code: 'is', label: 'Icelandic' }, { code: 'id', label: 'Indonesian' }, { code: 'it', label: 'Italian' },
+  { code: 'ja', label: 'Japanese' }, { code: 'kn', label: 'Kannada' }, { code: 'kk', label: 'Kazakh' },
+  { code: 'ko', label: 'Korean' }, { code: 'lv', label: 'Latvian' }, { code: 'lt', label: 'Lithuanian' },
+  { code: 'mk', label: 'Macedonian' }, { code: 'ms', label: 'Malay' }, { code: 'ml', label: 'Malayalam' },
+  { code: 'mr', label: 'Marathi' }, { code: 'mi', label: 'Maori' }, { code: 'mn', label: 'Mongolian' },
+  { code: 'ne', label: 'Nepali' }, { code: 'no', label: 'Norwegian' }, { code: 'fa', label: 'Persian' },
+  { code: 'pl', label: 'Polish' }, { code: 'pt', label: 'Portuguese' }, { code: 'pa', label: 'Punjabi' },
+  { code: 'ro', label: 'Romanian' }, { code: 'ru', label: 'Russian' }, { code: 'sr', label: 'Serbian' },
+  { code: 'sk', label: 'Slovak' }, { code: 'sl', label: 'Slovenian' }, { code: 'es', label: 'Spanish' },
+  { code: 'sw', label: 'Swahili' }, { code: 'sv', label: 'Swedish' }, { code: 'tl', label: 'Tagalog' },
+  { code: 'ta', label: 'Tamil' }, { code: 'te', label: 'Telugu' }, { code: 'th', label: 'Thai' },
+  { code: 'tr', label: 'Turkish' }, { code: 'uk', label: 'Ukrainian' }, { code: 'ur', label: 'Urdu' },
+  { code: 'vi', label: 'Vietnamese' }, { code: 'cy', label: 'Welsh' }
+];
+
+var langActiveIdx = -1;
+
 function initializeEventListeners() {
-  // File input change handler
   const fileInput = document.getElementById('file');
+  const dropzone = document.getElementById('dropzone');
+
   if (fileInput) {
-    fileInput.addEventListener('change', updateFileInfo);
+    fileInput.addEventListener('change', handleFileSelect);
+  }
+
+  // Drag & drop visual feedback
+  if (dropzone) {
+    dropzone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', function () {
+      dropzone.classList.remove('drag-over');
+    });
+    dropzone.addEventListener('drop', function () {
+      dropzone.classList.remove('drag-over');
+    });
+  }
+
+  // Language combobox
+  initLangCombobox();
+}
+
+// ── Language Combobox Logic ──────────────────────────────────────────────
+
+function initLangCombobox() {
+  var input = document.getElementById('languageSearch');
+  var list = document.getElementById('langList');
+  var clearBtn = document.getElementById('langClear');
+  var hidden = document.getElementById('language');
+  if (!input) return;
+
+  // Show list on focus
+  input.addEventListener('focus', function () {
+    renderLangList(input.value);
+    list.style.display = 'block';
+  });
+
+  // Filter on typing
+  input.addEventListener('input', function () {
+    langActiveIdx = -1;
+    renderLangList(input.value);
+    list.style.display = 'block';
+    // If user clears input, reset to auto-detect
+    if (!input.value.trim()) {
+      hidden.value = '';
+      clearBtn.style.display = 'none';
+    }
+  });
+
+  // Keyboard navigation
+  input.addEventListener('keydown', function (e) {
+    var items = list.querySelectorAll('.combobox-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      langActiveIdx = Math.min(langActiveIdx + 1, items.length - 1);
+      updateActiveItem(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      langActiveIdx = Math.max(langActiveIdx - 1, 0);
+      updateActiveItem(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (langActiveIdx >= 0 && items[langActiveIdx]) {
+        items[langActiveIdx].click();
+      }
+    } else if (e.key === 'Escape') {
+      list.style.display = 'none';
+      input.blur();
+    }
+  });
+
+  // Clear button
+  clearBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    input.value = '';
+    hidden.value = '';
+    clearBtn.style.display = 'none';
+    input.placeholder = 'Auto-detect';
+    input.focus();
+  });
+
+  // Close on outside click
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#langCombobox')) {
+      list.style.display = 'none';
+    }
+  });
+}
+
+function renderLangList(query) {
+  var list = document.getElementById('langList');
+  var q = (query || '').toLowerCase().trim();
+
+  var filtered = LANGUAGES.filter(function (lang) {
+    if (!q) return true;
+    return lang.label.toLowerCase().indexOf(q) !== -1 ||
+      lang.code.toLowerCase().indexOf(q) !== -1;
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<li class="combobox-empty">No language found</li>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function (lang, i) {
+    var display = lang.label;
+    if (q && lang.label.toLowerCase().indexOf(q) !== -1) {
+      var idx = lang.label.toLowerCase().indexOf(q);
+      display = lang.label.substring(0, idx) +
+        '<span class="match">' + lang.label.substring(idx, idx + q.length) + '</span>' +
+        lang.label.substring(idx + q.length);
+    }
+    return '<li class="combobox-item" data-code="' + lang.code + '" data-label="' + lang.label + '">' + display + '</li>';
+  }).join('');
+
+  // Click handlers
+  list.querySelectorAll('.combobox-item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      selectLang(item.dataset.code, item.dataset.label);
+    });
+  });
+}
+
+function selectLang(code, label) {
+  var input = document.getElementById('languageSearch');
+  var hidden = document.getElementById('language');
+  var list = document.getElementById('langList');
+  var clearBtn = document.getElementById('langClear');
+
+  hidden.value = code;
+  if (code) {
+    input.value = label;
+    clearBtn.style.display = 'flex';
+  } else {
+    input.value = '';
+    input.placeholder = 'Auto-detect';
+    clearBtn.style.display = 'none';
+  }
+  list.style.display = 'none';
+  langActiveIdx = -1;
+}
+
+function updateActiveItem(items) {
+  items.forEach(function (el, i) {
+    el.classList.toggle('active', i === langActiveIdx);
+  });
+  if (items[langActiveIdx]) {
+    items[langActiveIdx].scrollIntoView({ block: 'nearest' });
   }
 }
 
-function updateFileInfo() {
+// ── File Handling ────────────────────────────────────────────────────────
+
+function handleFileSelect() {
   const fileInput = document.getElementById('file');
   const file = fileInput.files[0];
-  const fileInfoEl = document.getElementById('fileInfo');
-  
-  if (file && fileInfoEl) {
+  const content = document.querySelector('.dropzone-content');
+  const preview = document.getElementById('filePreview');
+
+  if (file && preview) {
     const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-    const durationEl = document.getElementById('fileDuration') || {};
-    
-    fileInfoEl.innerHTML = `
-      <strong>File:</strong> ${file.name}<br>
-      <strong>Size:</strong> ${sizeMB} MB
-    `;
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = sizeMB + ' MB';
+
+    content.style.display = 'none';
+    preview.style.display = 'flex';
   }
 }
 
-function showMessage(message, type = 'info') {
-  const msgEl = document.getElementById('message');
-  msgEl.textContent = message;
-  msgEl.className = `message show ${type}`;
+function clearFile() {
+  const fileInput = document.getElementById('file');
+  const content = document.querySelector('.dropzone-content');
+  const preview = document.getElementById('filePreview');
+
+  fileInput.value = '';
+  content.style.display = '';
+  preview.style.display = 'none';
 }
 
-function hideMessage() {
-  const msgEl = document.getElementById('message');
-  msgEl.className = 'message';
+// ── Toast Notifications ─────────────────────────────────────────────────
+
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(function () {
+    toast.classList.add('leaving');
+    setTimeout(function () { toast.remove(); }, 250);
+  }, 4000);
 }
+
+// ── Page Navigation ─────────────────────────────────────────────────────
 
 function goBack() {
-  if (currentPage === 'upload') {
-    showHomePage();
-  } else if (currentPage === 'status') {
-    showHomePage();
-  } else if (currentPage === 'jobs') {
-    showHomePage();
-  }
+  showHomePage();
 }
 
 function showHomePage() {
   hideAllPages();
   currentPage = 'home';
-  
-  const homeEl = document.getElementById('homePage');
-  if (homeEl) {
-    homeEl.style.display = 'block';
-  }
-  
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.style.display = 'none';
-  }
+  show('homePage');
+  setBackBtn(false);
 }
 
 function showUploadPage() {
   hideAllPages();
   currentPage = 'upload';
-  
-  const uploadEl = document.getElementById('uploadPage');
-  if (uploadEl) {
-    uploadEl.style.display = 'block';
-  }
-  
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.style.display = 'inline-block';
-  }
-  
-  hideMessage();
+  show('uploadPage');
+  setBackBtn(true);
 }
 
 function showJobsPage() {
   hideAllPages();
   currentPage = 'jobs';
-  
-  const jobsEl = document.getElementById('jobsPage');
-  if (jobsEl) {
-    jobsEl.style.display = 'block';
-  }
-  
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.style.display = 'inline-block';
-  }
-  
+  show('jobsPage');
+  setBackBtn(true);
   loadAndDisplayJobs();
 }
 
+function showStatusPage() {
+  hideAllPages();
+  currentPage = 'status';
+  show('statusPage');
+  setBackBtn(true);
+  document.getElementById('jobIdDisplay').textContent = 'Job ID: ' + jobId;
+}
+
 function hideAllPages() {
-  const pages = ['homePage', 'uploadPage', 'statusPage', 'jobsPage'];
-  pages.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.style.display = 'none';
-    }
+  ['homePage', 'uploadPage', 'statusPage', 'jobsPage'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   });
 }
 
+function show(id) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = 'block';
+}
+
+function setBackBtn(visible) {
+  var btn = document.getElementById('backBtn');
+  if (btn) btn.style.visibility = visible ? 'visible' : 'hidden';
+}
+
+// ── Upload ──────────────────────────────────────────────────────────────
+
 function upload() {
-  const fileInput = document.getElementById('file');
-  const file = fileInput.files[0];
+  var fileInput = document.getElementById('file');
+  var file = fileInput.files[0];
 
   if (!file) {
-    showMessage('Please select a video file', 'warning');
+    showToast('Please select a video or audio file.', 'warning');
     return;
   }
 
-  // Removed file size limit - now supports up to available disk space
-  // if (file.size > 1000 * 1024 * 1024) { // 1GB limit
-  //   showMessage('File size must be less than 1GB', 'error');
-  //   return;
-  // }
-
-  const form = new FormData();
+  var form = new FormData();
   form.append('file', file);
 
-  const language = document.getElementById('language').value;
-  const model = document.getElementById('model').value;
-  const translate = document.getElementById('translate').checked;
+  var language = document.getElementById('language').value;
+  var model = document.getElementById('model').value;
+  var translate = document.getElementById('translate').checked;
 
-  if (language) {
-    form.append('language', language);
-  }
+  if (language) form.append('language', language);
   form.append('model', model);
   form.append('translate', translate ? 'on' : 'off');
 
-  const uploadBtn = document.getElementById('uploadBtn');
-  const cancelBtn = document.getElementById('cancelUploadBtn');
-  const progressSection = document.getElementById('uploadProgressSection');
+  var uploadBtn = document.getElementById('uploadBtn');
+  var cancelBtn = document.getElementById('cancelUploadBtn');
+  var progressSection = document.getElementById('uploadProgressSection');
 
   uploadBtn.style.display = 'none';
-  cancelBtn.style.display = 'inline-block';
+  cancelBtn.style.display = 'flex';
   progressSection.style.display = 'block';
 
-  hideMessage();
   uploadStartTime = Date.now();
 
-  const xhr = new XMLHttpRequest();
+  var xhr = new XMLHttpRequest();
   currentXHR = xhr;
 
-  // Progress event
-  xhr.upload.addEventListener('progress', (e) => {
+  // Progress
+  xhr.upload.addEventListener('progress', function (e) {
     if (e.lengthComputable) {
-      const percentComplete = (e.loaded / e.total) * 100;
-      const uploadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
-      const totalMB = (e.total / (1024 * 1024)).toFixed(2);
-      const elapsedSeconds = (Date.now() - uploadStartTime) / 1000;
-      const uploadSpeedMBps = (e.loaded / (1024 * 1024)) / elapsedSeconds;
-      
-      // Calculate ETA
-      let etaText = '--:--';
-      if (uploadSpeedMBps > 0) {
-        const remainingBytes = e.total - e.loaded;
-        const remainingSeconds = remainingBytes / (uploadSpeedMBps * 1024 * 1024);
-        const minutes = Math.floor(remainingSeconds / 60);
-        const seconds = Math.floor(remainingSeconds % 60);
-        etaText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      var pct = (e.loaded / e.total) * 100;
+      var uploadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+      var totalMB = (e.total / (1024 * 1024)).toFixed(2);
+      var elapsed = (Date.now() - uploadStartTime) / 1000;
+      var speed = (e.loaded / (1024 * 1024)) / elapsed;
+
+      var eta = '--:--';
+      if (speed > 0) {
+        var remaining = (e.total - e.loaded) / (speed * 1024 * 1024);
+        var m = Math.floor(remaining / 60);
+        var s = Math.floor(remaining % 60);
+        eta = m + ':' + s.toString().padStart(2, '0');
       }
 
-      document.getElementById('uploadProgressFill').style.width = percentComplete + '%';
-      document.getElementById('uploadPercentDisplay').textContent = percentComplete.toFixed(1) + '%';
+      document.getElementById('uploadProgressFill').style.width = pct + '%';
+      document.getElementById('uploadPercentDisplay').textContent = pct.toFixed(1) + '%';
       document.getElementById('uploadedSize').textContent = uploadedMB + ' MB';
       document.getElementById('totalSize').textContent = totalMB + ' MB';
-      document.getElementById('uploadSpeed').textContent = uploadSpeedMBps.toFixed(2) + ' MB/s';
-      document.getElementById('uploadETA').textContent = etaText;
+      document.getElementById('uploadSpeed').textContent = speed.toFixed(2) + ' MB/s';
+      document.getElementById('uploadETA').textContent = eta;
     }
   });
 
-  // Completion
-  xhr.addEventListener('load', () => {
+  // Load
+  xhr.addEventListener('load', function () {
     if (xhr.status === 200) {
       try {
-        const data = JSON.parse(xhr.responseText);
+        var data = JSON.parse(xhr.responseText);
         jobId = data.job_id;
-
-        progressSection.style.display = 'none';
-        cancelBtn.style.display = 'none';
-        uploadBtn.style.display = 'inline-block';
-        uploadBtn.innerHTML = 'Upload & Transcribe';
-
+        resetUploadUI();
         showStatusPage();
-        showMessage(`✓ Job created successfully! Transcription is starting...`, 'success');
-
-        // Fetch initial status
+        showToast('Job created! Transcription is starting…', 'success');
         checkStatus();
       } catch (e) {
-        showMessage(`Error parsing response: ${e.message}`, 'error');
+        showToast('Failed to parse server response.', 'error');
         resetUploadUI();
       }
     } else {
-      showMessage(`Upload failed with status ${xhr.status}`, 'error');
+      var detail = 'Upload failed (status ' + xhr.status + ')';
+      try {
+        var err = JSON.parse(xhr.responseText);
+        if (err.detail) detail = err.detail;
+      } catch (_) { }
+      showToast(detail, 'error');
       resetUploadUI();
     }
     currentXHR = null;
   });
 
-  // Error handling
-  xhr.addEventListener('error', () => {
-    showMessage('Network error during upload', 'error');
+  xhr.addEventListener('error', function () {
+    showToast('Network error during upload.', 'error');
     resetUploadUI();
     currentXHR = null;
   });
 
-  xhr.addEventListener('abort', () => {
-    showMessage('Upload cancelled', 'warning');
+  xhr.addEventListener('abort', function () {
+    showToast('Upload cancelled.', 'warning');
     resetUploadUI();
     currentXHR = null;
   });
 
-  // Send request
-  xhr.open('POST', `${API_BASE_URL}/api/jobs`, true);
+  xhr.open('POST', API_BASE_URL + '/api/jobs', true);
   xhr.send(form);
 }
 
 function cancelUpload() {
   if (currentXHR) {
     currentXHR.abort();
-    showMessage('Upload cancelled', 'warning');
     resetUploadUI();
   }
 }
 
 function resetUploadUI() {
-  const uploadBtn = document.getElementById('uploadBtn');
-  const cancelBtn = document.getElementById('cancelUploadBtn');
-  const progressSection = document.getElementById('uploadProgressSection');
+  var uploadBtn = document.getElementById('uploadBtn');
+  var cancelBtn = document.getElementById('cancelUploadBtn');
+  var progressSection = document.getElementById('uploadProgressSection');
 
-  uploadBtn.style.display = 'inline-block';
-  uploadBtn.innerHTML = 'Upload & Transcribe';
+  uploadBtn.style.display = 'flex';
   cancelBtn.style.display = 'none';
   progressSection.style.display = 'none';
 
-  // Reset progress
   document.getElementById('uploadProgressFill').style.width = '0%';
   document.getElementById('uploadPercentDisplay').textContent = '0%';
   document.getElementById('uploadedSize').textContent = '0 MB';
@@ -259,113 +423,99 @@ function resetUploadUI() {
   document.getElementById('uploadETA').textContent = '--:--';
 }
 
-function showStatusPage() {
-  hideAllPages();
-  currentPage = 'status';
-  
-  const statusEl = document.getElementById('statusPage');
-  if (statusEl) {
-    statusEl.style.display = 'block';
-  }
-  
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.style.display = 'inline-block';
-  }
-  
-  document.getElementById('jobIdDisplay').textContent = `Job ID: ${jobId}`;
-}
+// ── Status Checking ─────────────────────────────────────────────────────
 
 async function checkStatus() {
   if (!jobId) {
-    showMessage('No active job', 'warning');
+    showToast('No active job.', 'warning');
     return;
   }
 
-  const checkBtn = document.getElementById('checkStatusBtn');
+  var checkBtn = document.getElementById('checkStatusBtn');
   checkBtn.disabled = true;
-  checkBtn.innerHTML = '<span class="spinner"></span>Checking...';
+  checkBtn.innerHTML = '<span class="spinner-inline"></span>Checking…';
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`);
+    var res = await fetch(API_BASE_URL + '/api/jobs/' + jobId);
+    if (!res.ok) throw new Error('Failed to get job status');
 
-    if (!res.ok) {
-      throw new Error('Failed to get job status');
-    }
+    var data = await res.json();
 
-    const data = await res.json();
+    // Status
+    var statusEl = document.getElementById('statusValue');
+    statusEl.textContent = data.status.toUpperCase();
+    statusEl.className = 'status-val ' + data.status;
 
-    // Update status display
-    const statusValue = document.getElementById('statusValue');
-    statusValue.textContent = data.status.toUpperCase();
-    statusValue.className = `status-value ${data.status}`;
-
-    // Update language display
-    let languageDisplay = 'Auto-detect';
+    // Language
+    var langDisplay = 'Auto-detect';
     if (data.detected_language) {
-      languageDisplay = `${data.detected_language.toUpperCase()} (detected)`;
+      langDisplay = data.detected_language.toUpperCase() + ' (detected)';
     } else if (data.language) {
-      languageDisplay = data.language.toUpperCase();
+      langDisplay = data.language.toUpperCase();
     }
-    document.getElementById('languageValue').textContent = languageDisplay;
+    document.getElementById('languageValue').textContent = langDisplay;
 
-    // Update model display
-    const modelDisplay = (data.model || 'base').toUpperCase();
-    document.getElementById('modelValue').textContent = modelDisplay;
+    // Model
+    document.getElementById('modelValue').textContent = (data.model || 'base').toUpperCase();
 
-    // Update translate display
+    // Translation
     document.getElementById('translateValue').textContent = data.translate ? 'Yes' : 'No';
 
-    // Update progress if running
-    if (data.status === 'running' || (data.total_segments > 0)) {
-      const progressContainer = document.getElementById('progressContainer');
-      progressContainer.style.display = 'block';
-
-      const percent = data.progress_percentage || 0;
-      document.getElementById('progressFill').style.width = percent + '%';
-      document.getElementById('progressPercent').textContent = percent + '%';
-      document.getElementById('progressText').textContent = `${data.completed_segments}/${data.total_segments} segments`;
+    // Progress
+    if (data.status === 'running' || data.total_segments > 0) {
+      var pc = document.getElementById('progressContainer');
+      pc.style.display = 'block';
+      var pct = data.progress_percentage || 0;
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressPercent').textContent = pct + '%';
+      document.getElementById('progressText').textContent =
+        data.completed_segments + ' / ' + data.total_segments + ' segments';
 
       document.getElementById('segmentsRow').style.display = 'flex';
-      document.getElementById('segmentsValue').textContent = `${data.completed_segments}/${data.total_segments}`;
-
-      hideMessage();
+      document.getElementById('segmentsValue').textContent =
+        data.completed_segments + ' / ' + data.total_segments;
     }
 
     if (data.status === 'done') {
-      showMessage('✓ Transcription completed!', 'success');
+      showToast('Transcription completed!', 'success');
       document.getElementById('downloadBtn').style.display = 'flex';
       document.getElementById('resetBtn').style.display = 'flex';
       document.getElementById('checkStatusBtn').style.display = 'none';
     } else if (data.status === 'failed') {
-      showMessage(`✗ Transcription failed`, 'error');
+      showToast('Transcription failed.', 'error');
       document.getElementById('resetBtn').style.display = 'flex';
       document.getElementById('checkStatusBtn').style.display = 'none';
       if (data.error) {
-        document.getElementById('errorMessage').textContent = `Error: ${data.error}`;
-        document.getElementById('errorMessage').style.display = 'block';
+        var errEl = document.getElementById('errorMessage');
+        errEl.textContent = 'Error: ' + data.error;
+        errEl.style.display = 'block';
       }
-    } else {
-      showMessage(`Current status: ${data.status}. Click "Check Status" to refresh.`, 'info');
     }
 
   } catch (error) {
-    showMessage(`Error: ${error.message}`, 'error');
+    showToast('Error: ' + error.message, 'error');
   } finally {
     checkBtn.disabled = false;
-    checkBtn.innerHTML = 'Check Status';
+    checkBtn.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M23 4L16 12L11 7L1 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      'Check Status';
   }
 }
 
+// ── Download & Reset ────────────────────────────────────────────────────
+
 function downloadSubtitles() {
   if (!jobId) return;
-  window.location.href = `${API_BASE_URL}/api/jobs/${jobId}/subtitles`;
+  window.location.href = API_BASE_URL + '/api/jobs/' + jobId + '/subtitles';
 }
 
 function resetForm() {
   jobId = null;
-  document.getElementById('file').value = '';
+  clearFile();
   document.getElementById('language').value = '';
+  document.getElementById('languageSearch').value = '';
+  document.getElementById('languageSearch').placeholder = 'Auto-detect';
+  document.getElementById('langClear').style.display = 'none';
   document.getElementById('translate').checked = false;
   document.getElementById('downloadBtn').style.display = 'none';
   document.getElementById('resetBtn').style.display = 'none';
@@ -373,50 +523,62 @@ function resetForm() {
   document.getElementById('errorMessage').style.display = 'none';
   document.getElementById('progressContainer').style.display = 'none';
   document.getElementById('segmentsRow').style.display = 'none';
-  document.getElementById('fileInfo').innerHTML = '';
   showHomePage();
 }
 
+// ── Jobs List ───────────────────────────────────────────────────────────
+
 async function loadAndDisplayJobs() {
-  const jobsGrid = document.getElementById('jobsGrid');
-  jobsGrid.innerHTML = '<p style="text-align: center; padding: 20px;">Loading jobs...</p>';
+  var grid = document.getElementById('jobsGrid');
+
+  // Show skeleton while loading
+  grid.innerHTML =
+    '<div class="skeleton-card"><div class="skel-line w60"></div><div class="skel-line w40"></div><div class="skel-line w80"></div></div>' +
+    '<div class="skeleton-card"><div class="skel-line w60"></div><div class="skel-line w40"></div><div class="skel-line w80"></div></div>' +
+    '<div class="skeleton-card"><div class="skel-line w60"></div><div class="skel-line w40"></div><div class="skel-line w80"></div></div>';
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/jobs`);
+    var res = await fetch(API_BASE_URL + '/api/jobs');
+    if (!res.ok) throw new Error('Failed to load jobs');
 
-    if (!res.ok) {
-      throw new Error('Failed to load jobs');
-    }
-
-    const data = await res.json();
-    const jobs = data.jobs || [];
+    var data = await res.json();
+    var jobs = data.jobs || [];
 
     if (jobs.length === 0) {
-      jobsGrid.innerHTML = '<div class="no-jobs"><p>No transcription jobs yet</p><p style="font-size: 13px; margin-top: 10px;">Start a new job to see it here</p></div>';
+      grid.innerHTML =
+        '<div class="no-jobs">' +
+        '<p>No transcription jobs yet</p>' +
+        '<p style="font-size: 0.8125rem; margin-top: 6px;">Upload a video to get started</p>' +
+        '</div>';
       return;
     }
 
-    jobsGrid.innerHTML = jobs.map(job => `
-      <div class="job-card">
-        <div class="job-card-header">
-          <div class="job-card-id">${job.job_id}</div>
-          <span class="job-card-status ${job.status}">${job.status.toUpperCase()}</span>
-        </div>
-        <div class="job-card-details">
-          <div style="margin-bottom: 4px;">Created: ${new Date(job.created_at).toLocaleString()}</div>
-          ${job.language ? `<div style="margin-bottom: 4px;">Language: ${job.language}</div>` : ''}
-          ${job.detected_language ? `<div style="margin-bottom: 4px;">Detected: ${job.detected_language.toUpperCase()}</div>` : ''}
-          ${job.progress_percentage !== undefined ? `<div style="margin-bottom: 4px;">Progress: ${job.progress_percentage}%</div>` : ''}
-        </div>
-        <div class="job-card-action">
-          <button class="btn-tiny btn-tiny-primary" onclick="viewJobStatus('${job.job_id}')">View Status</button>
-          ${job.status === 'done' ? `<button class="btn-tiny btn-tiny-primary" onclick="downloadJobSubtitles('${job.job_id}')">Download</button>` : ''}
-        </div>
-      </div>
-    `).join('');
+    grid.innerHTML = jobs.map(function (job) {
+      return (
+        '<div class="job-card">' +
+        '<div class="job-card-header">' +
+        '<span class="job-card-id">' + job.job_id + '</span>' +
+        '<span class="job-card-status ' + job.status + '">' + job.status + '</span>' +
+        '</div>' +
+        '<div class="job-card-details">' +
+        '<div>Created: ' + new Date(job.created_at).toLocaleString() + '</div>' +
+        (job.language ? '<div>Language: ' + job.language + '</div>' : '') +
+        (job.detected_language ? '<div>Detected: ' + job.detected_language.toUpperCase() + '</div>' : '') +
+        (job.progress_percentage !== undefined ? '<div>Progress: ' + job.progress_percentage + '%</div>' : '') +
+        '</div>' +
+        '<div class="job-card-actions">' +
+        '<button class="btn btn-ghost btn-sm" onclick="viewJobStatus(\'' + job.job_id + '\')">View</button>' +
+        (job.status === 'done'
+          ? '<button class="btn btn-accent btn-sm" onclick="downloadJobSubtitles(\'' + job.job_id + '\')">Download</button>'
+          : '') +
+        '</div>' +
+        '</div>'
+      );
+    }).join('');
 
   } catch (error) {
-    jobsGrid.innerHTML = `<div class="no-jobs"><p style="color: #d32f2f;">Error loading jobs: ${error.message}</p></div>`;
+    grid.innerHTML =
+      '<div class="no-jobs"><p style="color: #F87171;">Error loading jobs: ' + error.message + '</p></div>';
   }
 }
 
@@ -424,26 +586,18 @@ function viewJobStatus(id) {
   jobId = id;
   hideAllPages();
   currentPage = 'status';
-  
-  const statusEl = document.getElementById('statusPage');
-  if (statusEl) {
-    statusEl.style.display = 'block';
-  }
-  
-  const backBtn = document.getElementById('backBtn');
-  if (backBtn) {
-    backBtn.style.display = 'inline-block';
-  }
-  
-  document.getElementById('jobIdDisplay').textContent = `Job ID: ${jobId}`;
+  show('statusPage');
+  setBackBtn(true);
+
+  document.getElementById('jobIdDisplay').textContent = 'Job ID: ' + jobId;
   document.getElementById('downloadBtn').style.display = 'none';
   document.getElementById('resetBtn').style.display = 'flex';
   document.getElementById('checkStatusBtn').style.display = 'flex';
   document.getElementById('errorMessage').style.display = 'none';
-  
+
   checkStatus();
 }
 
 function downloadJobSubtitles(id) {
-  window.location.href = `${API_BASE_URL}/api/jobs/${id}/subtitles`;
+  window.location.href = API_BASE_URL + '/api/jobs/' + id + '/subtitles';
 }

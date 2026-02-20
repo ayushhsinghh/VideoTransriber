@@ -1,201 +1,275 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Video Transcriber</title>
+  <title>SubForge — AI Video Transcriber</title>
+  <meta name="description"
+    content="AI-powered video transcription and subtitle generator. Upload any video or audio file and get accurate subtitles in seconds." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-  <div class="container">
-    <!-- Back Button -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <div class="header-left">
-        <button id="backBtn" class="back-btn" onclick="goBack()" style="display: none;">← Back</button>
+  <!-- Toast container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <div class="app-shell">
+    <!-- Top bar -->
+    <header class="top-bar">
+      <button id="backBtn" class="icon-btn" onclick="goBack()" style="visibility: hidden;" aria-label="Go back">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+      </button>
+      <div class="logo" onclick="showHomePage()">SubForge</div>
+      <button class="icon-btn" onclick="showHomePage()" aria-label="Home">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M3 10L10 3L17 10M5 8.5V16H8.5V12H11.5V16H15V8.5" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </header>
+
+    <!-- ═══ HOME PAGE ═══ -->
+    <main id="homePage" class="page">
+      <div class="hero">
+        <div class="hero-glow"></div>
+        <h1>AI-Powered<br />Video Transcriber</h1>
+        <p class="hero-sub">Upload any video or audio file. Get accurate, timestamped subtitles powered by OpenAI
+          Whisper.</p>
       </div>
-      <button class="btn-link" onclick="showHomePage()" style="text-align: right;">🏠 Home</button>
-    </div>
 
-    <!-- Messages -->
-    <div id="message" class="message"></div>
-
-    <!-- HOME PAGE -->
-    <div id="homePage">
-      <div class="header">
-        <div class="header-left">
-          <h1>🎬 Video Transcriber</h1>
-          <p class="subtitle">Convert videos to subtitles with AI</p>
-        </div>
-      </div>
-
-      <div style="display: grid; gap: 12px;">
-        <button onclick="showUploadPage()" class="btn-primary" style="padding: 20px; font-size: 16px;">
-          ➕ Upload New Video
+      <div class="home-actions">
+        <button id="homeUploadBtn" class="btn btn-accent btn-lg" onclick="showUploadPage()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M12 16V4M12 4L8 8M12 4L16 8M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Upload Video
         </button>
-        <button onclick="showJobsPage()" class="btn-secondary" style="padding: 20px; font-size: 16px;">
-          📋 View All Jobs
+        <button id="homeJobsBtn" class="btn btn-ghost btn-lg" onclick="showJobsPage()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M9 5H7C5.9 5 5 5.9 5 7V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V7C19 5.9 18.1 5 17 5H15M9 5C9 6.1 9.9 7 11 7H13C14.1 7 15 6.1 15 5M9 5C9 3.9 9.9 3 11 3H13C14.1 3 15 3.9 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01"
+              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          View Jobs
         </button>
       </div>
 
-      <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; font-size: 14px; color: #666;">
-        <h3 style="margin-bottom: 10px; color: #333;">✨ Features</h3>
-        <ul style="margin-left: 20px; line-height: 1.6;">
-          <li>Support for multiple video/audio formats</li>
-          <li>Automatic language detection</li>
-          <li>Optional subtitle translation to English</li>
-          <li>Real-time transcription progress tracking</li>
-          <li>Download subtitles in SRT format</li>
-        </ul>
+      <div class="features-strip">
+        <div class="feature-chip"><span class="chip-dot"></span>Multi-format support</div>
+        <div class="feature-chip"><span class="chip-dot"></span>Auto language detection</div>
+        <div class="feature-chip"><span class="chip-dot"></span>English translation</div>
+        <div class="feature-chip"><span class="chip-dot"></span>Real-time progress</div>
+        <div class="feature-chip"><span class="chip-dot"></span>SRT export</div>
       </div>
-    </div>
+    </main>
 
-    <!-- UPLOAD PAGE -->
-    <div id="uploadPage">
-      <h1>📤 Upload Video</h1>
-      <p class="subtitle">Select a video or audio file to transcribe</p>
+    <!-- ═══ UPLOAD PAGE ═══ -->
+    <main id="uploadPage" class="page" style="display:none;">
+      <h2 class="page-title">Upload & Transcribe</h2>
+      <p class="page-subtitle">Select a video or audio file to generate subtitles</p>
 
-      <div class="form-group">
-        <label for="file">Select Video/Audio File</label>
+      <!-- Dropzone -->
+      <div id="dropzone" class="dropzone">
         <input type="file" id="file" accept="video/*,audio/*" />
-        <div id="fileInfo" class="file-info"></div>
+        <div class="dropzone-content">
+          <div class="dropzone-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+              <path d="M12 16V4M12 4L8 8M12 4L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M20 17V19C20 20.1 19.1 21 18 21H6C4.9 21 4 20.1 4 19V17" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <p class="dropzone-label">Drop file here or <span class="text-accent">browse</span></p>
+          <p class="dropzone-hint">MP4, MKV, AVI, MOV, MP3, WAV — up to 5 GB</p>
+        </div>
+        <div id="filePreview" class="file-preview" style="display:none;">
+          <div class="file-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M14 2V8H20M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="file-meta">
+            <span id="fileName" class="file-name"></span>
+            <span id="fileSize" class="file-size"></span>
+          </div>
+          <button class="file-remove" onclick="clearFile()" aria-label="Remove file">&times;</button>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="language">Language (Optional)</label>
-        <select id="language">
-          <option value="">🌍 Auto-detect</option>
-          <option value="en">🇺🇸 English</option>
-          <option value="hi">🇮🇳 Hindi</option>
-          <option value="es">🇪🇸 Spanish</option>
-          <option value="fr">🇫🇷 French</option>
-          <option value="de">🇩🇪 German</option>
-          <option value="ja">🇯🇵 Japanese</option>
-          <option value="zh">🇨🇳 Chinese</option>
-          <option value="ar">🇸🇦 Arabic</option>
-          <option value="pt">🇧🇷 Portuguese</option>
-          <option value="ru">🇷🇺 Russian</option>
-        </select>
+      <!-- Options row -->
+      <div class="options-grid">
+        <div class="field">
+          <label for="languageSearch">Language</label>
+          <input type="hidden" id="language" value="" />
+          <div class="combobox" id="langCombobox">
+            <div class="combobox-input-wrap">
+              <input type="text" id="languageSearch" class="combobox-input" placeholder="Auto-detect"
+                autocomplete="off" />
+              <button type="button" class="combobox-clear" id="langClear" style="display:none;"
+                aria-label="Clear">&times;</button>
+            </div>
+            <ul class="combobox-list" id="langList" style="display:none;"></ul>
+          </div>
+        </div>
+        <div class="field">
+          <label for="model">Whisper Model</label>
+          <select id="model">
+            <option value="base" selected>Base — fast</option>
+            <option value="tiny">Tiny — fastest</option>
+            <option value="small">Small — balanced</option>
+            <option value="medium">Medium — accurate</option>
+            <option value="large-v3">Large v3 — best</option>
+          </select>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="model">AI Model (Accuracy vs Speed)</label>
-        <select id="model">
-          <option value="base" selected>Base (Fast, Good)</option>
-          <option value="tiny">Tiny (Fastest, Lower accuracy)</option>
-          <option value="small">Small (Fast, Better accuracy)</option>
-          <option value="medium">Medium (Slower, High accuracy)</option>
-          <option value="large-v3">Large (Slowest, Highest accuracy)</option>
-        </select>
-      </div>
-
-      <div class="checkbox-group">
+      <label class="toggle-row">
         <input type="checkbox" id="translate" />
-        <label for="translate" class="checkbox-label">Translate subtitles to English</label>
-      </div>
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Translate subtitles to English</span>
+      </label>
 
-      <!-- Upload Progress Section -->
-      <div id="uploadProgressSection" class="upload-progress-section" style="display: none; margin: 20px 0;">
-        <div class="progress-header">
-          <div class="progress-title">Uploading...</div>
-          <div class="progress-percent" id="uploadPercentDisplay">0%</div>
+      <!-- Upload progress -->
+      <div id="uploadProgressSection" class="progress-card" style="display:none;">
+        <div class="progress-card-header">
+          <span class="progress-title">Uploading…</span>
+          <span id="uploadPercentDisplay" class="progress-pct">0%</span>
         </div>
-        
-        <div class="progress-bar-container">
-          <div class="progress-bar-background">
-            <div class="progress-bar-fill" id="uploadProgressFill"></div>
-          </div>
+        <div class="progress-track">
+          <div id="uploadProgressFill" class="progress-fill"></div>
         </div>
-        
         <div class="progress-stats">
-          <div class="stat-item">
-            <span class="stat-label">Uploaded:</span>
-            <span class="stat-value" id="uploadedSize">0 MB</span>
+          <div class="stat"><span class="stat-label">Uploaded</span><span id="uploadedSize" class="stat-val">0 MB</span>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">Total:</span>
-            <span class="stat-value" id="totalSize">0 MB</span>
+          <div class="stat"><span class="stat-label">Total</span><span id="totalSize" class="stat-val">0 MB</span></div>
+          <div class="stat"><span class="stat-label">Speed</span><span id="uploadSpeed" class="stat-val">0 MB/s</span>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">Speed:</span>
-            <span class="stat-value" id="uploadSpeed">0 MB/s</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">ETA:</span>
-            <span class="stat-value" id="uploadETA">--:--</span>
-          </div>
+          <div class="stat"><span class="stat-label">ETA</span><span id="uploadETA" class="stat-val">--:--</span></div>
         </div>
       </div>
 
-      <div class="button-group">
-        <button id="uploadBtn" class="btn-primary" onclick="upload()">Upload & Transcribe</button>
-        <button id="cancelUploadBtn" class="btn-secondary" onclick="cancelUpload()" style="display: none;">Cancel Upload</button>
+      <div class="action-row">
+        <button id="uploadBtn" class="btn btn-accent btn-lg btn-full" onclick="upload()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          Start Transcription
+        </button>
+        <button id="cancelUploadBtn" class="btn btn-danger btn-lg btn-full" onclick="cancelUpload()"
+          style="display:none;">Cancel Upload</button>
       </div>
-    </div>
+    </main>
 
-    <!-- STATUS PAGE -->
-    <div id="statusPage">
-      <h1>📊 Transcription Status</h1>
-      <p class="subtitle" style="margin-bottom: 20px;">Track your transcription job</p>
+    <!-- ═══ STATUS PAGE ═══ -->
+    <main id="statusPage" class="page" style="display:none;">
+      <h2 class="page-title">Transcription Status</h2>
+      <p class="page-subtitle">Tracking your transcription job</p>
 
-      <div class="status-section show">
-        <div class="job-id-display" id="jobIdDisplay"></div>
+      <div class="status-card">
+        <div id="jobIdDisplay" class="job-id-badge"></div>
 
-        <div class="status-item">
-          <span class="status-label">Status:</span>
-          <span id="statusValue" class="status-value">-</span>
+        <div class="status-row">
+          <span class="status-label">Status</span>
+          <span id="statusValue" class="status-val">—</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Language</span>
+          <span id="languageValue" class="status-val">—</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Model</span>
+          <span id="modelValue" class="status-val">—</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Translation</span>
+          <span id="translateValue" class="status-val">—</span>
         </div>
 
-        <div class="status-item">
-          <span class="status-label">Language:</span>
-          <span id="languageValue" class="status-value">-</span>
-        </div>
-
-        <div class="status-item">
-          <span class="status-label">Model:</span>
-          <span id="modelValue" class="status-value">-</span>
-        </div>
-
-        <div class="status-item">
-          <span class="status-label">Translate:</span>
-          <span id="translateValue" class="status-value">-</span>
-        </div>
-
-        <div id="progressContainer" class="progress-container" style="display: none;">
-          <div class="progress-bar">
+        <!-- Transcription progress skeleton / real -->
+        <div id="progressContainer" class="progress-card nested" style="display:none;">
+          <div class="progress-card-header">
+            <span class="progress-title">Transcribing…</span>
+            <span id="progressPercent" class="progress-pct">0%</span>
+          </div>
+          <div class="progress-track">
             <div id="progressFill" class="progress-fill"></div>
           </div>
-          <div class="progress-text">
-            <span id="progressText">0/0 segments</span> • <span id="progressPercent">0%</span>
+          <div class="progress-meta">
+            <span id="progressText">0 / 0 segments</span>
           </div>
         </div>
 
-        <div class="status-item" id="segmentsRow" style="display: none;">
-          <span class="status-label">Segments:</span>
-          <span id="segmentsValue" class="status-value">-</span>
+        <div id="segmentsRow" class="status-row" style="display:none;">
+          <span class="status-label">Segments</span>
+          <span id="segmentsValue" class="status-val">—</span>
         </div>
 
-        <div class="button-group" style="margin-top: 16px;">
-          <button id="checkStatusBtn" class="btn-secondary" onclick="checkStatus()">Check Status</button>
-          <button id="downloadBtn" class="btn-primary" onclick="downloadSubtitles()" style="display: none;">Download Subtitles</button>
-          <button id="resetBtn" class="btn-secondary" onclick="resetForm()" style="display: none;">Start Over</button>
-        </div>
-
-        <div id="errorMessage" style="margin-top: 12px; color: #d32f2f; font-size: 13px; display: none;"></div>
+        <div id="errorMessage" class="error-banner" style="display:none;"></div>
       </div>
-    </div>
 
-    <!-- JOBS PAGE -->
-    <div id="jobsPage">
-      <h1>📋 All Jobs</h1>
-      <p class="subtitle" style="margin-bottom: 20px;">View and manage your transcription jobs</p>
+      <div class="action-row">
+        <button id="checkStatusBtn" class="btn btn-ghost btn-lg btn-full" onclick="checkStatus()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M23 4L16 12L11 7L1 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          Check Status
+        </button>
+        <button id="downloadBtn" class="btn btn-accent btn-lg btn-full" onclick="downloadSubtitles()"
+          style="display:none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 4V16M12 16L8 12M12 16L16 12M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Download Subtitles
+        </button>
+        <button id="resetBtn" class="btn btn-ghost btn-lg btn-full" onclick="resetForm()" style="display:none;">Start
+          Over</button>
+      </div>
+    </main>
+
+    <!-- ═══ JOBS PAGE ═══ -->
+    <main id="jobsPage" class="page" style="display:none;">
+      <h2 class="page-title">All Jobs</h2>
+      <p class="page-subtitle">View and manage your transcription jobs</p>
 
       <div id="jobsGrid" class="jobs-grid">
-        <p style="text-align: center; padding: 40px 20px; color: #666;">Loading jobs...</p>
+        <!-- Skeleton loader -->
+        <div class="skeleton-card">
+          <div class="skel-line w60"></div>
+          <div class="skel-line w40"></div>
+          <div class="skel-line w80"></div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skel-line w60"></div>
+          <div class="skel-line w40"></div>
+          <div class="skel-line w80"></div>
+        </div>
+        <div class="skeleton-card">
+          <div class="skel-line w60"></div>
+          <div class="skel-line w40"></div>
+          <div class="skel-line w80"></div>
+        </div>
       </div>
-    </div>
+    </main>
   </div>
 
   <script src="script.js"></script>
 </body>
+
 </html>
