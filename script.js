@@ -13,6 +13,8 @@ let uploadStartTime = null;
 
 document.addEventListener('DOMContentLoaded', function () {
   initializeEventListeners();
+  checkAuthFromUrl();
+  updateAuthUI();
   showHomePage();
 });
 
@@ -68,6 +70,148 @@ function initializeEventListeners() {
 
   // Language combobox
   initLangCombobox();
+}
+// ── Authentication Logic ───────────────────────────────────────────────
+
+function checkAuthFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const email = urlParams.get('email');
+
+  if (token) {
+    localStorage.setItem('subforge_token', token);
+    if (email) localStorage.setItem('subforge_email', email);
+
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showToast('Successfully logged in!', 'success');
+  }
+}
+
+function getToken() {
+  return localStorage.getItem('subforge_token');
+}
+
+function updateAuthUI() {
+  const token = getToken();
+  const email = localStorage.getItem('subforge_email');
+
+  const authBtn = document.getElementById('authBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const emailDisplay = document.getElementById('userEmailDisplay');
+
+  if (token) {
+    authBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+    if (email) {
+      emailDisplay.textContent = email;
+      emailDisplay.style.display = 'inline-block';
+    }
+  } else {
+    authBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+    emailDisplay.style.display = 'none';
+  }
+}
+
+function toggleAuthModal() {
+  const modal = document.getElementById('authModal');
+  if (modal.style.display === 'none') {
+    modal.style.display = 'flex';
+  } else {
+    modal.style.display = 'none';
+  }
+}
+
+function toggleAuthMode(e) {
+  e.preventDefault();
+  const form = document.getElementById('loginForm');
+  const submitBtn = document.getElementById('loginSubmitBtn');
+  const modeTxt = document.getElementById('authModeToggle');
+  const title = document.querySelector('.auth-header .page-title');
+  const subtitle = document.querySelector('.auth-header .page-subtitle');
+
+  const isLogin = submitBtn.textContent.trim() === 'Log In';
+
+  if (isLogin) {
+    submitBtn.textContent = 'Register';
+    modeTxt.textContent = 'Log In';
+    modeTxt.previousSibling.textContent = "Already have an account? ";
+    title.textContent = "Create Account";
+    subtitle.textContent = "Join SubForge to manage your jobs";
+    form.dataset.mode = "register";
+  } else {
+    submitBtn.textContent = 'Log In';
+    modeTxt.textContent = 'Register';
+    modeTxt.previousSibling.textContent = "Don't have an account? ";
+    title.textContent = "Welcome Back";
+    subtitle.textContent = "Login to SubForge to manage your jobs";
+    form.dataset.mode = "login";
+  }
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+
+  const email = document.getElementById('emailInput').value;
+  const password = document.getElementById('passwordInput').value;
+  const form = document.getElementById('loginForm');
+  const isRegister = form.dataset.mode === "register";
+  const btn = document.getElementById('loginSubmitBtn');
+
+  btn.disabled = true;
+  btn.textContent = 'Please wait...';
+
+  try {
+    const formData = new URLSearchParams();
+    formData.append('username', email);
+    formData.append('password', password);
+
+    let url = isRegister ? '/auth/register' : '/auth/token';
+
+    // Use relative path for auth as they are on the same domain
+    // (Ensure API_BASE_URL handles credentials correctly if different origin)
+    const endpoint = API_BASE_URL.replace('/api', '') + url;
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData.toString()
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Authentication failed');
+    }
+
+    if (isRegister) {
+      showToast('Registration successful! Please log in.', 'success');
+      toggleAuthMode(new CustomEvent('click')); // switch back to login
+    } else {
+      localStorage.setItem('subforge_token', data.access_token);
+      localStorage.setItem('subforge_email', email);
+      updateAuthUI();
+      toggleAuthModal();
+      showToast('Successfully logged in!', 'success');
+    }
+
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = isRegister ? 'Register' : 'Log In';
+  }
+}
+
+function logoutUser() {
+  localStorage.removeItem('subforge_token');
+  localStorage.removeItem('subforge_email');
+  updateAuthUI();
+  showToast('Logged out successfully', 'info');
+  showHomePage();
 }
 
 // ── Language Combobox Logic ──────────────────────────────────────────────
@@ -396,6 +540,12 @@ function upload() {
   });
 
   xhr.open('POST', API_BASE_URL + '/api/jobs', true);
+
+  const token = getToken();
+  if (token) {
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+  }
+
   xhr.send(form);
 }
 
@@ -436,7 +586,15 @@ async function checkStatus() {
   checkBtn.innerHTML = '<span class="spinner-inline"></span>Checking…';
 
   try {
-    var res = await fetch(API_BASE_URL + '/api/jobs/' + jobId);
+    const headers = {};
+    const token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    var res = await fetch(API_BASE_URL + '/api/jobs/' + jobId, { headers });
+
+    if (res.status === 401) {
+      throw new Error('Unauthorized. Please log in.');
+    }
     if (!res.ok) throw new Error('Failed to get job status');
 
     var data = await res.json();
@@ -506,7 +664,29 @@ async function checkStatus() {
 
 function downloadSubtitles() {
   if (!jobId) return;
-  window.location.href = API_BASE_URL + '/api/jobs/' + jobId + '/subtitles';
+  const token = getToken();
+  let url = API_BASE_URL + '/api/jobs/' + jobId + '/subtitles';
+  if (token) {
+    url += '?token=' + token; // Backend would need to support auth via query param for direct download links, or we use File API
+  }
+
+  // To send authorization headers for a download, we use fetch and create an object URL
+  const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+  fetch(API_BASE_URL + '/api/jobs/' + jobId + '/subtitles', { headers })
+    .then(res => {
+      if (!res.ok) throw new Error("Unauthorized or not found");
+      return res.blob();
+    })
+    .then(blob => {
+      const a = document.createElement('a');
+      a.href = window.URL.createObjectURL(blob);
+      a.download = jobId + '.srt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    })
+    .catch(err => showToast("Error downloading: " + err.message, "error"));
 }
 
 function resetForm() {
@@ -538,7 +718,17 @@ async function loadAndDisplayJobs() {
     '<div class="skeleton-card"><div class="skel-line w60"></div><div class="skel-line w40"></div><div class="skel-line w80"></div></div>';
 
   try {
-    var res = await fetch(API_BASE_URL + '/api/jobs');
+    const headers = {};
+    const token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    var res = await fetch(API_BASE_URL + '/api/jobs', { headers });
+
+    if (res.status === 401) {
+      grid.innerHTML = '<div class="no-jobs"><p>Please log in to view your jobs.</p><button class="btn btn-sm btn-accent" style="margin-top: 10px;" onclick="toggleAuthModal()">Log In</button></div>';
+      return;
+    }
+
     if (!res.ok) throw new Error('Failed to load jobs');
 
     var data = await res.json();
@@ -599,5 +789,21 @@ function viewJobStatus(id) {
 }
 
 function downloadJobSubtitles(id) {
-  window.location.href = API_BASE_URL + '/api/jobs/' + id + '/subtitles';
+  const token = getToken();
+  const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+
+  fetch(API_BASE_URL + '/api/jobs/' + id + '/subtitles', { headers })
+    .then(res => {
+      if (!res.ok) throw new Error("Unauthorized or not found");
+      return res.blob();
+    })
+    .then(blob => {
+      const a = document.createElement('a');
+      a.href = window.URL.createObjectURL(blob);
+      a.download = id + '.srt';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    })
+    .catch(err => showToast("Error downloading: " + err.message, "error"));
 }
