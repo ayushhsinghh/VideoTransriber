@@ -1018,7 +1018,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 60px auto 0;
+  min-height: calc(100vh - 80px);
+  /* Fill the screen minus the top bar */
   width: 100%;
 }
 
