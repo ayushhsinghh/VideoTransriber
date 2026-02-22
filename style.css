@@ -59,6 +59,10 @@ body {
   color: #E8E8EC;
   cursor: pointer;
   user-select: none;
+  margin-right: auto;
+  /* Pushes everything else to the right */
+  margin-left: 12px;
+  /* Add some space from the back button if visible */
 }
 
 .icon-btn {
@@ -1271,4 +1275,53 @@ body {
     padding: 30px 20px;
     border-radius: 12px;
   }
+}
+
+/* ── Unauthenticated States ───────────────────────────────────────────── */
+
+.unauth-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  text-align: center;
+  animation: fadeUp 0.4s ease;
+}
+
+.unauth-content {
+  max-width: 400px;
+  padding: 40px;
+  background: #1E1E1E;
+  border: 1px solid #2A2A2E;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.unauth-icon-bg {
+  width: 64px;
+  height: 64px;
+  background: rgba(123, 140, 222, 0.1);
+  color: #7B8CDE;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.unauth-content h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #E8E8EC;
+  margin: 0;
+}
+
+.unauth-content p {
+  color: #9CA3AF;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin: 0 0 8px 0;
 }

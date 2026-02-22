@@ -553,6 +553,15 @@ function showUploadPage() {
   currentPage = 'upload';
   show('uploadPage');
   setBackBtn(true);
+
+  const token = getToken();
+  if (token) {
+    document.getElementById('uploadUnauthState').style.display = 'none';
+    document.getElementById('uploadAuthContent').style.display = 'block';
+  } else {
+    document.getElementById('uploadUnauthState').style.display = 'flex';
+    document.getElementById('uploadAuthContent').style.display = 'none';
+  }
 }
 
 function showJobsPage() {
@@ -560,7 +569,16 @@ function showJobsPage() {
   currentPage = 'jobs';
   show('jobsPage');
   setBackBtn(true);
-  loadAndDisplayJobs();
+
+  const token = getToken();
+  if (token) {
+    document.getElementById('jobsUnauthState').style.display = 'none';
+    document.getElementById('jobsAuthContent').style.display = 'block';
+    loadAndDisplayJobs();
+  } else {
+    document.getElementById('jobsUnauthState').style.display = 'flex';
+    document.getElementById('jobsAuthContent').style.display = 'none';
+  }
 }
 
 function showStatusPage() {
@@ -585,7 +603,7 @@ function show(id) {
 
 function setBackBtn(visible) {
   var btn = document.getElementById('backBtn');
-  if (btn) btn.style.visibility = visible ? 'visible' : 'hidden';
+  if (btn) btn.style.display = visible ? 'flex' : 'none';
 }
 
 // ── Upload ──────────────────────────────────────────────────────────────
@@ -878,7 +896,7 @@ async function loadAndDisplayJobs() {
       localStorage.removeItem('subforge_email');
       updateAuthUI();
 
-      grid.innerHTML = '<div class="no-jobs"><p>Please log in to view your jobs.</p><button class="btn btn-sm btn-accent" style="margin-top: 10px;" onclick="toggleAuthModal()">Log In</button></div>';
+      showJobsPage(); // Re-render the page to show the unauth state correctly
       return;
     }
 
