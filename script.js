@@ -89,7 +89,7 @@ function checkAuthFromUrl() {
 }
 
 function loginWithGoogle() {
-  const endpoint = API_BASE_URL.replace('/api', '') + '/auth/google/login';
+  const endpoint = API_BASE_URL + '/auth/google/login';
   window.location.href = endpoint;
 }
 
