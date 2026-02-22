@@ -1018,9 +1018,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 100px);
-  /* Account for top bar and padding */
-  padding: 20px 0;
+  margin: 60px auto 0;
+  width: 100%;
 }
 
 .auth-card {
