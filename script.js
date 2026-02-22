@@ -88,6 +88,11 @@ function checkAuthFromUrl() {
   }
 }
 
+function loginWithGoogle() {
+  const endpoint = API_BASE_URL.replace('/api', '') + '/auth/google/login';
+  window.location.href = endpoint;
+}
+
 function getToken() {
   return localStorage.getItem('subforge_token');
 }
