@@ -120,52 +120,183 @@ function updateAuthUI() {
 }
 
 function toggleAuthModal() {
-  const modal = document.getElementById('authModal');
-  if (modal.style.display === 'none') {
-    modal.style.display = 'flex';
-  } else {
-    modal.style.display = 'none';
+  // Now redirects to the dedicated auth page
+  hideAllPages();
+  currentPage = 'auth';
+  show('authPage');
+  setBackBtn(true);
+
+  // Pre-fill email if Remember Me applies
+  const savedEmail = localStorage.getItem('subforge_remembered_email');
+  if (savedEmail) {
+    document.getElementById('emailInput').value = savedEmail;
+    document.getElementById('rememberMe').checked = true;
   }
 }
 
 function toggleAuthMode(e) {
   e.preventDefault();
   const form = document.getElementById('loginForm');
-  const submitBtn = document.getElementById('loginSubmitBtn');
+  const submitBtnText = document.querySelector('#loginSubmitBtn .btn-text');
   const modeTxt = document.getElementById('authModeToggle');
   const title = document.querySelector('.auth-header .page-title');
   const subtitle = document.querySelector('.auth-header .page-subtitle');
+  const optionsRow = document.querySelector('.auth-options');
 
-  const isLogin = submitBtn.textContent.trim() === 'Log In';
+  const isLogin = submitBtnText.textContent.trim() === 'Log In';
+
+  // Clear errors on mode switch
+  document.getElementById('emailError').textContent = '';
+  document.getElementById('passwordError').textContent = '';
+  document.getElementById('emailInput').classList.remove('invalid', 'valid');
+  document.getElementById('passwordInput').classList.remove('invalid', 'valid');
 
   if (isLogin) {
-    submitBtn.textContent = 'Register';
+    submitBtnText.textContent = 'Register';
     modeTxt.textContent = 'Log In';
     modeTxt.previousSibling.textContent = "Already have an account? ";
     title.textContent = "Create Account";
     subtitle.textContent = "Join SubForge to manage your jobs";
     form.dataset.mode = "register";
+    optionsRow.style.display = 'none'; // Hide terms/remember me on register for now
   } else {
-    submitBtn.textContent = 'Log In';
+    submitBtnText.textContent = 'Log In';
     modeTxt.textContent = 'Register';
     modeTxt.previousSibling.textContent = "Don't have an account? ";
     title.textContent = "Welcome Back";
     subtitle.textContent = "Login to SubForge to manage your jobs";
     form.dataset.mode = "login";
+    optionsRow.style.display = 'flex';
   }
 }
+
+// ── Real-Time Validation ───────────────────────────────────────────────
+
+function validateEmail(focusedOut = false) {
+  const emailInput = document.getElementById('emailInput');
+  const errorSpan = document.getElementById('emailError');
+  const email = emailInput.value.trim();
+
+  if (!email) {
+    if (focusedOut) {
+      errorSpan.textContent = "Email is required.";
+      errorSpan.classList.add('active');
+      emailInput.classList.add('invalid');
+      emailInput.classList.remove('valid');
+    } else {
+      errorSpan.classList.remove('active');
+      emailInput.classList.remove('invalid', 'valid');
+    }
+    return false;
+  }
+
+  if (!email.includes('@')) {
+    errorSpan.textContent = "Please include an '@' in the email address.";
+    errorSpan.classList.add('active');
+    emailInput.classList.add('invalid');
+    emailInput.classList.remove('valid');
+    return false;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    errorSpan.textContent = "Please enter a fully valid email (e.g., name@domain.com).";
+    errorSpan.classList.add('active');
+    emailInput.classList.add('invalid');
+    emailInput.classList.remove('valid');
+    return false;
+  }
+
+  errorSpan.textContent = '';
+  errorSpan.classList.remove('active');
+  emailInput.classList.remove('invalid');
+  emailInput.classList.add('valid');
+  return true;
+}
+
+function validatePassword(focusedOut = false) {
+  const passwordInput = document.getElementById('passwordInput');
+  const errorSpan = document.getElementById('passwordError');
+  const password = passwordInput.value;
+
+  if (!password) {
+    if (focusedOut) {
+      errorSpan.textContent = "Password is required.";
+      errorSpan.classList.add('active');
+      passwordInput.classList.add('invalid');
+      passwordInput.classList.remove('valid');
+    } else {
+      errorSpan.classList.remove('active');
+      passwordInput.classList.remove('invalid', 'valid');
+    }
+    return false;
+  }
+
+  if (password.length < 8) {
+    errorSpan.textContent = "Password must be at least 8 characters long.";
+    errorSpan.classList.add('active');
+    passwordInput.classList.add('invalid');
+    passwordInput.classList.remove('valid');
+    return false;
+  }
+
+  errorSpan.textContent = '';
+  errorSpan.classList.remove('active');
+  passwordInput.classList.remove('invalid');
+  passwordInput.classList.add('valid');
+  return true;
+}
+
+function togglePasswordVisibility() {
+  const input = document.getElementById('passwordInput');
+  const showIcon = document.getElementById('eyeIconShow');
+  const hideIcon = document.getElementById('eyeIconHide');
+  const btn = document.getElementById('togglePasswordBtn');
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    showIcon.style.display = 'none';
+    hideIcon.style.display = 'block';
+    btn.setAttribute('aria-label', 'Hide password');
+  } else {
+    input.type = 'password';
+    showIcon.style.display = 'block';
+    hideIcon.style.display = 'none';
+    btn.setAttribute('aria-label', 'Show password');
+  }
+}
+
+function handleForgotPassword(e) {
+  e.preventDefault();
+  showToast('Password reset instructions have been sent to your email.', 'info');
+}
+
+// ── Auth Submission ────────────────────────────────────────────────────
 
 async function handleLoginSubmit(e) {
   e.preventDefault();
 
-  const email = document.getElementById('emailInput').value;
+  const isEmailValid = validateEmail(true);
+  const isPasswordValid = validatePassword(true);
+
+  if (!isEmailValid || !isPasswordValid) {
+    return; // Block submission if validation fails
+  }
+
+  const email = document.getElementById('emailInput').value.trim();
   const password = document.getElementById('passwordInput').value;
+  const rememberMe = document.getElementById('rememberMe').checked;
   const form = document.getElementById('loginForm');
   const isRegister = form.dataset.mode === "register";
-  const btn = document.getElementById('loginSubmitBtn');
 
+  const btn = document.getElementById('loginSubmitBtn');
+  const btnText = btn.querySelector('.btn-text');
+  const btnSpinner = btn.querySelector('.btn-spinner');
+
+  // Activate Loading State
   btn.disabled = true;
-  btn.textContent = 'Please wait...';
+  btnText.textContent = isRegister ? 'Registering...' : 'Logging In...';
+  btnSpinner.style.display = 'inline-block';
 
   try {
     const formData = new URLSearchParams();
@@ -173,10 +304,7 @@ async function handleLoginSubmit(e) {
     formData.append('password', password);
 
     let url = isRegister ? '/auth/register' : '/auth/token';
-
-    // Use relative path for auth as they are on the same domain
-    // (Ensure API_BASE_URL handles credentials correctly if different origin)
-    const endpoint = API_BASE_URL.replace('/api', '') + url;
+    const endpoint = API_BASE_URL + url;
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -198,16 +326,31 @@ async function handleLoginSubmit(e) {
     } else {
       localStorage.setItem('subforge_token', data.access_token);
       localStorage.setItem('subforge_email', email);
+
+      if (rememberMe) {
+        localStorage.setItem('subforge_remembered_email', email);
+      } else {
+        localStorage.removeItem('subforge_remembered_email');
+      }
+
       updateAuthUI();
-      toggleAuthModal();
+      showHomePage(); // Navigate away from Auth Page
       showToast('Successfully logged in!', 'success');
     }
 
   } catch (error) {
     showToast(error.message, 'error');
+
+    // Optionally flag the inputs as invalid on a 401 Unauthorized
+    if (error.message.toLowerCase().includes('incorrect') || error.message.toLowerCase().includes('unauthorized')) {
+      document.getElementById('emailInput').classList.add('invalid');
+      document.getElementById('passwordInput').classList.add('invalid');
+    }
   } finally {
+    // Restore Loading State
     btn.disabled = false;
-    btn.textContent = isRegister ? 'Register' : 'Log In';
+    btnText.textContent = isRegister ? 'Register' : 'Log In';
+    btnSpinner.style.display = 'none';
   }
 }
 
@@ -429,7 +572,7 @@ function showStatusPage() {
 }
 
 function hideAllPages() {
-  ['homePage', 'uploadPage', 'statusPage', 'jobsPage'].forEach(function (id) {
+  ['homePage', 'uploadPage', 'statusPage', 'jobsPage', 'authPage'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -729,7 +872,12 @@ async function loadAndDisplayJobs() {
 
     var res = await fetch(API_BASE_URL + '/api/jobs', { headers });
 
-    if (res.status === 401) {
+    if (res.status === 401 || res.status === 403) {
+      // Token may be invalid/expired, automatically trigger logout to clean state
+      localStorage.removeItem('subforge_token');
+      localStorage.removeItem('subforge_email');
+      updateAuthUI();
+
       grid.innerHTML = '<div class="no-jobs"><p>Please log in to view your jobs.</p><button class="btn btn-sm btn-accent" style="margin-top: 10px;" onclick="toggleAuthModal()">Log In</button></div>';
       return;
     }
