@@ -84,12 +84,10 @@ function initializeEventListeners() {
 
 function checkAuthFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
-  const token = urlParams.get('token');
   const email = urlParams.get('email');
 
-  if (token) {
-    localStorage.setItem('subforge_token', token);
-    if (email) localStorage.setItem('subforge_email', email);
+  if (email) {
+    localStorage.setItem('subforge_email', email);
 
     // Clean URL
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -102,19 +100,21 @@ function loginWithGoogle() {
   window.location.href = endpoint;
 }
 
-function getToken() {
-  return localStorage.getItem('subforge_token');
+function isAuthenticated() {
+  // Since the token is in an HttpOnly cookie, we use the presence of the 
+  // email in localStorage as a proxy to know if the user is logged in natively.
+  return localStorage.getItem('subforge_email') !== null;
 }
 
 function updateAuthUI() {
-  const token = getToken();
+  const isAuth = isAuthenticated();
   const email = localStorage.getItem('subforge_email');
 
   const authBtn = document.getElementById('authBtn');
   const userMenu = document.getElementById('userMenu');
   const userGreeting = document.getElementById('userGreeting');
 
-  if (token) {
+  if (isAuth) {
     authBtn.style.display = 'none';
     if (email) {
       const name = email.split('@')[0];
@@ -363,7 +363,6 @@ async function handleLoginSubmit(e) {
       showToast('Registration successful! Please log in.', 'success');
       toggleAuthMode(new CustomEvent('click')); // switch back to login
     } else {
-      localStorage.setItem('subforge_token', data.access_token);
       localStorage.setItem('subforge_email', email);
 
       if (rememberMe) {
@@ -393,8 +392,17 @@ async function handleLoginSubmit(e) {
   }
 }
 
-function logoutUser() {
-  localStorage.removeItem('subforge_token');
+async function logoutUser() {
+  try {
+    // Tell the backend to clear the HttpOnly cookie
+    await fetch(API_BASE_URL + '/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+  } catch (e) {
+    console.error("Logout error", e);
+  }
+
   localStorage.removeItem('subforge_email');
   updateAuthUI();
   showToast('Logged out successfully', 'info');
@@ -593,8 +601,7 @@ function showUploadPage() {
   show('uploadPage');
   setBackBtn(true);
 
-  const token = getToken();
-  if (token) {
+  if (isAuthenticated()) {
     document.getElementById('uploadUnauthState').style.display = 'none';
     document.getElementById('uploadAuthContent').style.display = 'block';
   } else {
@@ -609,8 +616,7 @@ function showJobsPage() {
   show('jobsPage');
   setBackBtn(true);
 
-  const token = getToken();
-  if (token) {
+  if (isAuthenticated()) {
     document.getElementById('jobsUnauthState').style.display = 'none';
     document.getElementById('jobsAuthContent').style.display = 'block';
     loadAndDisplayJobs();
@@ -767,10 +773,8 @@ function upload() {
     : API_BASE_URL + '/api/jobs';
   xhr.open('POST', uploadUrl, true);
 
-  const token = getToken();
-  if (token) {
-    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-  }
+  // Send cookies with the XMLHttpRequest
+  xhr.withCredentials = true;
 
   xhr.send(form);
 }
@@ -812,11 +816,9 @@ async function checkStatus() {
   checkBtn.innerHTML = '<span class="spinner-inline"></span>Checking…';
 
   try {
-    const headers = {};
-    const token = getToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-
-    var res = await fetch(API_BASE_URL + '/api/jobs/' + jobId, { headers });
+    var res = await fetch(API_BASE_URL + '/api/jobs/' + jobId, {
+      credentials: 'include'
+    });
 
     if (res.status === 401) {
       throw new Error('Unauthorized. Please log in.');
@@ -894,16 +896,10 @@ async function checkStatus() {
 
 function downloadSubtitles() {
   if (!jobId) return;
-  const token = getToken();
-  let url = API_BASE_URL + '/api/jobs/' + jobId + '/subtitles';
-  if (token) {
-    url += '?token=' + token; // Backend would need to support auth via query param for direct download links, or we use File API
-  }
 
-  // To send authorization headers for a download, we use fetch and create an object URL
-  const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-
-  fetch(API_BASE_URL + '/api/jobs/' + jobId + '/subtitles', { headers })
+  fetch(API_BASE_URL + '/api/jobs/' + jobId + '/subtitles', {
+    credentials: 'include'
+  })
     .then(res => {
       if (!res.ok) throw new Error("Unauthorized or not found");
       return res.blob();
@@ -950,15 +946,12 @@ async function loadAndDisplayJobs() {
     '<div class="skeleton-card"><div class="skel-line w60"></div><div class="skel-line w40"></div><div class="skel-line w80"></div></div>';
 
   try {
-    const headers = {};
-    const token = getToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-
-    var res = await fetch(API_BASE_URL + '/api/jobs', { headers });
+    var res = await fetch(API_BASE_URL + '/api/jobs', {
+      credentials: 'include'
+    });
 
     if (res.status === 401 || res.status === 403) {
-      // Token may be invalid/expired, automatically trigger logout to clean state
-      localStorage.removeItem('subforge_token');
+      // Cookie might be invalid/expired, automatically logout
       localStorage.removeItem('subforge_email');
       updateAuthUI();
 
@@ -1027,10 +1020,9 @@ function viewJobStatus(id, originalFilename) {
 }
 
 function downloadJobSubtitles(id, originalFilename) {
-  const token = getToken();
-  const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-
-  fetch(API_BASE_URL + '/api/jobs/' + id + '/subtitles', { headers })
+  fetch(API_BASE_URL + '/api/jobs/' + id + '/subtitles', {
+    credentials: 'include'
+  })
     .then(res => {
       if (!res.ok) throw new Error("Unauthorized or not found");
       return res.blob();
