@@ -8,6 +8,15 @@ let jobId = null;
 let currentPage = 'home';
 let currentXHR = null;
 let uploadStartTime = null;
+let currentOriginalFilename = null;
+
+// Helper: derive .srt download name from the original filename
+function srtFilename(originalFilename, fallbackId) {
+  if (originalFilename) {
+    return originalFilename.replace(/\.[^.]+$/, '') + '.srt';
+  }
+  return fallbackId + '.srt';
+}
 
 // ── Initialisation ──────────────────────────────────────────────────────
 
@@ -785,6 +794,9 @@ async function checkStatus() {
 
     var data = await res.json();
 
+    // Store original filename for download
+    currentOriginalFilename = data.original_filename || null;
+
     // Status
     var statusEl = document.getElementById('statusValue');
     statusEl.textContent = data.status.toUpperCase();
@@ -867,7 +879,7 @@ function downloadSubtitles() {
     .then(blob => {
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(blob);
-      a.download = jobId + '.srt';
+      a.download = srtFilename(currentOriginalFilename, jobId);
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -889,6 +901,7 @@ function resetForm() {
   document.getElementById('errorMessage').style.display = 'none';
   document.getElementById('progressContainer').style.display = 'none';
   document.getElementById('segmentsRow').style.display = 'none';
+  currentOriginalFilename = null;
   selectEngine('whisper');
   showHomePage();
 }
@@ -951,7 +964,7 @@ async function loadAndDisplayJobs() {
         '<div class="job-card-actions">' +
         '<button class="btn btn-ghost btn-sm" onclick="viewJobStatus(\'' + job.job_id + '\')">View</button>' +
         (job.status === 'done'
-          ? '<button class="btn btn-accent btn-sm" onclick="downloadJobSubtitles(\'' + job.job_id + '\')">Download</button>'
+          ? '<button class="btn btn-accent btn-sm" onclick="downloadJobSubtitles(\'' + job.job_id + '\', \'' + (job.original_filename || '').replace(/'/g, "\\'") + '\')">Download</button>'
           : '') +
         '</div>' +
         '</div>'
@@ -980,7 +993,7 @@ function viewJobStatus(id) {
   checkStatus();
 }
 
-function downloadJobSubtitles(id) {
+function downloadJobSubtitles(id, originalFilename) {
   const token = getToken();
   const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
 
@@ -992,7 +1005,7 @@ function downloadJobSubtitles(id) {
     .then(blob => {
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(blob);
-      a.download = id + '.srt';
+      a.download = srtFilename(originalFilename, id);
       document.body.appendChild(a);
       a.click();
       a.remove();
