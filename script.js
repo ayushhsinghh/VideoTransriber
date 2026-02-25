@@ -606,6 +606,22 @@ function setBackBtn(visible) {
   if (btn) btn.style.display = visible ? 'flex' : 'none';
 }
 
+// ── Engine Selector ─────────────────────────────────────────────────────
+
+function selectEngine(engine) {
+  var buttons = document.querySelectorAll('.engine-option');
+  buttons.forEach(function (btn) {
+    btn.classList.toggle('active', btn.dataset.engine === engine);
+  });
+  document.getElementById('engine').value = engine;
+
+  // Show/hide the Whisper Model dropdown
+  var modelField = document.getElementById('modelField');
+  if (modelField) {
+    modelField.style.display = engine === 'whisper' ? '' : 'none';
+  }
+}
+
 // ── Upload ──────────────────────────────────────────────────────────────
 
 function upload() {
@@ -617,6 +633,7 @@ function upload() {
     return;
   }
 
+  var engine = document.getElementById('engine').value;
   var form = new FormData();
   form.append('file', file);
 
@@ -625,7 +642,7 @@ function upload() {
   var translate = document.getElementById('translate').checked;
 
   if (language) form.append('language', language);
-  form.append('model', model);
+  if (engine === 'whisper') form.append('model', model);
   form.append('translate', translate ? 'on' : 'off');
 
   var uploadBtn = document.getElementById('uploadBtn');
@@ -705,7 +722,10 @@ function upload() {
     currentXHR = null;
   });
 
-  xhr.open('POST', API_BASE_URL + '/api/jobs', true);
+  var uploadUrl = engine === 'riva'
+    ? API_BASE_URL + '/api/riva/jobs'
+    : API_BASE_URL + '/api/jobs';
+  xhr.open('POST', uploadUrl, true);
 
   const token = getToken();
   if (token) {
@@ -869,6 +889,7 @@ function resetForm() {
   document.getElementById('errorMessage').style.display = 'none';
   document.getElementById('progressContainer').style.display = 'none';
   document.getElementById('segmentsRow').style.display = 'none';
+  selectEngine('whisper');
   showHomePage();
 }
 
