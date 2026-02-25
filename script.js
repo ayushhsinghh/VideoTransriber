@@ -595,7 +595,7 @@ function showStatusPage() {
   currentPage = 'status';
   show('statusPage');
   setBackBtn(true);
-  document.getElementById('jobIdDisplay').textContent = 'Job ID: ' + jobId;
+  document.getElementById('jobIdDisplay').textContent = currentOriginalFilename ? currentOriginalFilename : 'Job ID: ' + jobId;
 }
 
 function hideAllPages() {
@@ -699,6 +699,7 @@ function upload() {
       try {
         var data = JSON.parse(xhr.responseText);
         jobId = data.job_id;
+        currentOriginalFilename = file.name || null;
         resetUploadUI();
         showStatusPage();
         showToast('Job created! Transcription is starting…', 'success');
@@ -796,6 +797,7 @@ async function checkStatus() {
 
     // Store original filename for download
     currentOriginalFilename = data.original_filename || null;
+    document.getElementById('jobIdDisplay').textContent = currentOriginalFilename ? currentOriginalFilename : 'Job ID: ' + jobId;
 
     // Status
     var statusEl = document.getElementById('statusValue');
@@ -952,7 +954,7 @@ async function loadAndDisplayJobs() {
       return (
         '<div class="job-card">' +
         '<div class="job-card-header">' +
-        '<span class="job-card-id">' + job.job_id + '</span>' +
+        '<span class="job-card-id">' + (job.original_filename || job.video || job.job_id) + '</span>' +
         '<span class="job-card-status ' + job.status + '">' + job.status + '</span>' +
         '</div>' +
         '<div class="job-card-details">' +
@@ -962,7 +964,7 @@ async function loadAndDisplayJobs() {
         (job.progress_percentage !== undefined ? '<div>Progress: ' + job.progress_percentage + '%</div>' : '') +
         '</div>' +
         '<div class="job-card-actions">' +
-        '<button class="btn btn-ghost btn-sm" onclick="viewJobStatus(\'' + job.job_id + '\')">View</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="viewJobStatus(\'' + job.job_id + '\', \'' + (job.original_filename || '').replace(/'/g, "\\'") + '\')">View</button>' +
         (job.status === 'done'
           ? '<button class="btn btn-accent btn-sm" onclick="downloadJobSubtitles(\'' + job.job_id + '\', \'' + (job.original_filename || '').replace(/'/g, "\\'") + '\')">Download</button>'
           : '') +
@@ -977,14 +979,15 @@ async function loadAndDisplayJobs() {
   }
 }
 
-function viewJobStatus(id) {
+function viewJobStatus(id, originalFilename) {
   jobId = id;
+  currentOriginalFilename = originalFilename || null;
   hideAllPages();
   currentPage = 'status';
   show('statusPage');
   setBackBtn(true);
 
-  document.getElementById('jobIdDisplay').textContent = 'Job ID: ' + jobId;
+  document.getElementById('jobIdDisplay').textContent = currentOriginalFilename ? currentOriginalFilename : 'Job ID: ' + jobId;
   document.getElementById('downloadBtn').style.display = 'none';
   document.getElementById('resetBtn').style.display = 'flex';
   document.getElementById('checkStatusBtn').style.display = 'flex';
