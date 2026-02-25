@@ -91,6 +91,95 @@ body {
   animation: fadeUp 0.35s ease;
 }
 
+/* ── User Menu Dropdown ────────────────────────────────────────────────── */
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #E8E8EC;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.user-menu-btn:hover,
+.user-menu-btn[aria-expanded="true"] {
+  background: #1E1E1E;
+}
+
+.user-menu-btn .chevron {
+  color: #9CA3AF;
+  transition: transform 0.2s ease;
+}
+
+.user-menu-btn[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #1E1E1E;
+  border: 1px solid #2A2A2E;
+  border-radius: 10px;
+  min-width: 140px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 100;
+}
+
+.user-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #E8E8EC;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dropdown-item:hover {
+  background: #2A2A2E;
+}
+
+.dropdown-item.text-danger {
+  color: #F87171;
+}
+
+.dropdown-item.text-danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;

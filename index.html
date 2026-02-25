@@ -36,10 +36,25 @@
         <!-- Auth Controls in Top Bar -->
         <div class="auth-controls" style="margin-left: auto;">
           <button id="authBtn" class="btn btn-sm btn-ghost" onclick="toggleAuthModal()">Login</button>
-          <span id="userEmailDisplay" class="user-email-display"
-            style="display: none; margin-right: 12px; font-size: 0.85rem; color: #9CA3AF;"></span>
-          <button id="logoutBtn" class="btn btn-sm btn-ghost" onclick="logoutUser()"
-            style="display: none;">Logout</button>
+
+          <div id="userMenu" class="user-menu" style="display: none;">
+            <button class="user-menu-btn" id="userMenuBtn" aria-haspopup="true" aria-expanded="false">
+              <span id="userGreeting">Hi User</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="chevron">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+            <div class="user-dropdown" id="userDropdown">
+              <button class="dropdown-item text-danger" onclick="logoutUser()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
     </header>
 

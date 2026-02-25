@@ -111,22 +111,52 @@ function updateAuthUI() {
   const email = localStorage.getItem('subforge_email');
 
   const authBtn = document.getElementById('authBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const emailDisplay = document.getElementById('userEmailDisplay');
+  const userMenu = document.getElementById('userMenu');
+  const userGreeting = document.getElementById('userGreeting');
 
   if (token) {
     authBtn.style.display = 'none';
-    logoutBtn.style.display = 'inline-block';
     if (email) {
-      emailDisplay.textContent = email;
-      emailDisplay.style.display = 'inline-block';
+      const name = email.split('@')[0];
+      // Capitalize first letter logic
+      const capitalizedRef = name.charAt(0).toUpperCase() + name.slice(1);
+      userGreeting.textContent = 'Hi ' + capitalizedRef;
+      userMenu.style.display = 'block';
     }
   } else {
     authBtn.style.display = 'inline-block';
-    logoutBtn.style.display = 'none';
-    emailDisplay.style.display = 'none';
+    userMenu.style.display = 'none';
   }
 }
+
+// ── Dropdown Logic ──────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  const userMenuBtn = document.getElementById('userMenuBtn');
+  const userDropdown = document.getElementById('userDropdown');
+
+  if (userMenuBtn && userDropdown) {
+    userMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent document click from firing immediately
+      const isExpanded = userMenuBtn.getAttribute('aria-expanded') === 'true';
+
+      if (isExpanded) {
+        userMenuBtn.setAttribute('aria-expanded', 'false');
+        userDropdown.classList.remove('show');
+      } else {
+        userMenuBtn.setAttribute('aria-expanded', 'true');
+        userDropdown.classList.add('show');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!userDropdown.contains(e.target) && !userMenuBtn.contains(e.target)) {
+        userMenuBtn.setAttribute('aria-expanded', 'false');
+        userDropdown.classList.remove('show');
+      }
+    });
+  }
+});
 
 function toggleAuthModal() {
   // Now redirects to the dedicated auth page
