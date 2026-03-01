@@ -9,6 +9,8 @@ let currentPage = 'home';
 let currentXHR = null;
 let uploadStartTime = null;
 let currentOriginalFilename = null;
+let selectedFiles = [];       // Array of File objects for multi-upload
+let isUploading = false;
 
 // Helper: derive .srt download name from the original filename
 function srtFilename(originalFilename, fallbackId) {
@@ -72,8 +74,12 @@ function initializeEventListeners() {
     dropzone.addEventListener('dragleave', function () {
       dropzone.classList.remove('drag-over');
     });
-    dropzone.addEventListener('drop', function () {
+    dropzone.addEventListener('drop', function (e) {
+      e.preventDefault();
       dropzone.classList.remove('drag-over');
+      if (e.dataTransfer && e.dataTransfer.files.length) {
+        addFiles(e.dataTransfer.files);
+      }
     });
   }
 
@@ -538,32 +544,86 @@ function updateActiveItem(items) {
   }
 }
 
-// ── File Handling ────────────────────────────────────────────────────────
+// ── File Handling (multi-file) ───────────────────────────────────────────
 
 function handleFileSelect() {
   const fileInput = document.getElementById('file');
-  const file = fileInput.files[0];
-  const content = document.querySelector('.dropzone-content');
-  const preview = document.getElementById('filePreview');
-
-  if (file && preview) {
-    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-    document.getElementById('fileName').textContent = file.name;
-    document.getElementById('fileSize').textContent = sizeMB + ' MB';
-
-    content.style.display = 'none';
-    preview.style.display = 'flex';
+  if (fileInput.files.length) {
+    addFiles(fileInput.files);
+    // Reset native input so the same files can be re-selected if needed
+    fileInput.value = '';
   }
 }
 
-function clearFile() {
-  const fileInput = document.getElementById('file');
-  const content = document.querySelector('.dropzone-content');
-  const preview = document.getElementById('filePreview');
+function addFiles(fileListObj) {
+  for (var i = 0; i < fileListObj.length; i++) {
+    // Avoid duplicates by name + size
+    var f = fileListObj[i];
+    var isDupe = selectedFiles.some(function (sf) {
+      return sf.name === f.name && sf.size === f.size;
+    });
+    if (!isDupe) {
+      selectedFiles.push(f);
+    }
+  }
+  renderFileList();
+}
 
+function renderFileList() {
+  var listEl = document.getElementById('fileList');
+  var badge = document.getElementById('fileCountBadge');
+
+  if (!selectedFiles.length) {
+    listEl.style.display = 'none';
+    badge.style.display = 'none';
+    return;
+  }
+
+  badge.textContent = selectedFiles.length + ' file' + (selectedFiles.length > 1 ? 's' : '') + ' selected';
+  badge.style.display = 'inline-flex';
+  listEl.style.display = 'flex';
+
+  var html = '<div class="file-list-header">' +
+    '<span class="file-list-count">' + selectedFiles.length + ' file' + (selectedFiles.length > 1 ? 's' : '') + '</span>' +
+    '<button class="file-list-clear" onclick="clearFiles()">Clear all</button>' +
+    '</div>';
+
+  selectedFiles.forEach(function (file, idx) {
+    var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    html += '<div class="file-list-item">' +
+      '<div class="file-icon">' +
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none">' +
+      '<path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M14 2V8H20M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>' +
+      '</div>' +
+      '<div class="file-meta">' +
+      '<span class="file-name">' + escapeHtml(file.name) + '</span>' +
+      '<span class="file-size">' + sizeMB + ' MB</span>' +
+      '</div>' +
+      '<button class="file-remove" onclick="removeFile(' + idx + ')" aria-label="Remove file">&times;</button>' +
+      '</div>';
+  });
+
+  listEl.innerHTML = html;
+}
+
+function removeFile(index) {
+  selectedFiles.splice(index, 1);
+  renderFileList();
+}
+
+function clearFiles() {
+  selectedFiles = [];
+  var fileInput = document.getElementById('file');
   fileInput.value = '';
-  content.style.display = '';
-  preview.style.display = 'none';
+  renderFileList();
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
 }
 
 // ── Toast Notifications ─────────────────────────────────────────────────
@@ -667,136 +727,187 @@ function selectEngine(engine) {
   }
 }
 
-// ── Upload ──────────────────────────────────────────────────────────────
+// ── Upload (multi-file, sequential) ─────────────────────────────────────
 
 function upload() {
-  var fileInput = document.getElementById('file');
-  var file = fileInput.files[0];
-
-  if (!file) {
-    showToast('Please select a video or audio file.', 'warning');
+  if (!selectedFiles.length) {
+    showToast('Please select at least one video or audio file.', 'warning');
     return;
   }
 
-  var engine = document.getElementById('engine').value;
-  var form = new FormData();
-  form.append('file', file);
+  if (isUploading) return;
+  isUploading = true;
 
+  var engine = document.getElementById('engine').value;
   var language = document.getElementById('language').value;
   var model = document.getElementById('model').value;
   var translate = document.getElementById('translate').checked;
 
-  if (language) form.append('language', language);
-  if (engine === 'whisper') form.append('model', model);
-  form.append('translate', translate ? 'on' : 'off');
-
   var uploadBtn = document.getElementById('uploadBtn');
   var cancelBtn = document.getElementById('cancelUploadBtn');
-  var progressSection = document.getElementById('uploadProgressSection');
+  var batchSection = document.getElementById('batchProgressSection');
 
   uploadBtn.style.display = 'none';
   cancelBtn.style.display = 'flex';
-  progressSection.style.display = 'block';
+  batchSection.style.display = 'block';
 
-  uploadStartTime = Date.now();
+  var files = selectedFiles.slice(); // snapshot
+  var totalFiles = files.length;
+  var completedFiles = 0;
+  var failedFiles = 0;
+  var createdJobIds = [];
 
-  var xhr = new XMLHttpRequest();
-  currentXHR = xhr;
+  function updateBatchProgress() {
+    var pct = Math.round(((completedFiles + failedFiles) / totalFiles) * 100);
+    document.getElementById('batchProgressFill').style.width = pct + '%';
+    document.getElementById('batchPercentDisplay').textContent = pct + '%';
+    document.getElementById('batchProgressTitle').textContent =
+      'Uploading ' + (completedFiles + failedFiles + 1) + ' of ' + totalFiles + '…';
+  }
 
-  // Progress
-  xhr.upload.addEventListener('progress', function (e) {
-    if (e.lengthComputable) {
-      var pct = (e.loaded / e.total) * 100;
-      var uploadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
-      var totalMB = (e.total / (1024 * 1024)).toFixed(2);
-      var elapsed = (Date.now() - uploadStartTime) / 1000;
-      var speed = (e.loaded / (1024 * 1024)) / elapsed;
-
-      var eta = '--:--';
-      if (speed > 0) {
-        var remaining = (e.total - e.loaded) / (speed * 1024 * 1024);
-        var m = Math.floor(remaining / 60);
-        var s = Math.floor(remaining % 60);
-        eta = m + ':' + s.toString().padStart(2, '0');
-      }
-
-      document.getElementById('uploadProgressFill').style.width = pct + '%';
-      document.getElementById('uploadPercentDisplay').textContent = pct.toFixed(1) + '%';
-      document.getElementById('uploadedSize').textContent = uploadedMB + ' MB';
-      document.getElementById('totalSize').textContent = totalMB + ' MB';
-      document.getElementById('uploadSpeed').textContent = speed.toFixed(2) + ' MB/s';
-      document.getElementById('uploadETA').textContent = eta;
-    }
-  });
-
-  // Load
-  xhr.addEventListener('load', function () {
-    if (xhr.status === 200) {
-      try {
-        var data = JSON.parse(xhr.responseText);
-        jobId = data.job_id;
-        currentOriginalFilename = file.name || null;
-        resetUploadUI();
-        showStatusPage();
-        showToast('Job created! Transcription is starting…', 'success');
-        checkStatus();
-      } catch (e) {
-        showToast('Failed to parse server response.', 'error');
-        resetUploadUI();
-      }
-    } else {
-      var detail = 'Upload failed (status ' + xhr.status + ')';
-      try {
-        var err = JSON.parse(xhr.responseText);
-        if (err.detail) detail = err.detail;
-      } catch (_) { }
-      showToast(detail, 'error');
+  function uploadNext(index) {
+    if (index >= totalFiles) {
+      // All done
+      isUploading = false;
       resetUploadUI();
+      clearFiles();
+
+      if (completedFiles > 0) {
+        var msg = completedFiles + ' file' + (completedFiles > 1 ? 's' : '') + ' uploaded successfully!';
+        if (failedFiles > 0) msg += ' (' + failedFiles + ' failed)';
+        showToast(msg, failedFiles > 0 ? 'warning' : 'success');
+        showJobsPage();
+      } else {
+        showToast('All uploads failed.', 'error');
+      }
+      return;
     }
-    currentXHR = null;
-  });
 
-  xhr.addEventListener('error', function () {
-    showToast('Network error during upload.', 'error');
-    resetUploadUI();
-    currentXHR = null;
-  });
+    var file = files[index];
+    updateBatchProgress();
 
-  xhr.addEventListener('abort', function () {
-    showToast('Upload cancelled.', 'warning');
-    resetUploadUI();
-    currentXHR = null;
-  });
+    // Show per-file progress
+    var cfp = document.getElementById('currentFileProgress');
+    cfp.style.display = 'block';
+    document.getElementById('currentFileName').textContent = file.name;
+    document.getElementById('currentFilePercent').textContent = '0%';
+    document.getElementById('currentFileProgressFill').style.width = '0%';
+    document.getElementById('uploadedSize').textContent = '0 MB';
+    document.getElementById('totalSize').textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+    document.getElementById('uploadSpeed').textContent = '0 MB/s';
+    document.getElementById('uploadETA').textContent = '--:--';
 
-  var uploadUrl = engine === 'riva'
-    ? API_BASE_URL + '/api/riva/jobs'
-    : API_BASE_URL + '/api/jobs';
-  xhr.open('POST', uploadUrl, true);
+    var form = new FormData();
+    form.append('file', file);
+    if (language) form.append('language', language);
+    if (engine === 'whisper') form.append('model', model);
+    form.append('translate', translate ? 'on' : 'off');
 
-  // Send cookies with the XMLHttpRequest
-  xhr.withCredentials = true;
+    var xhr = new XMLHttpRequest();
+    currentXHR = xhr;
+    uploadStartTime = Date.now();
 
-  xhr.send(form);
+    xhr.upload.addEventListener('progress', function (e) {
+      if (e.lengthComputable) {
+        var pct = (e.loaded / e.total) * 100;
+        var uploadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+        var totalMB = (e.total / (1024 * 1024)).toFixed(2);
+        var elapsed = (Date.now() - uploadStartTime) / 1000;
+        var speed = (e.loaded / (1024 * 1024)) / elapsed;
+
+        var eta = '--:--';
+        if (speed > 0) {
+          var remaining = (e.total - e.loaded) / (speed * 1024 * 1024);
+          var m = Math.floor(remaining / 60);
+          var s = Math.floor(remaining % 60);
+          eta = m + ':' + s.toString().padStart(2, '0');
+        }
+
+        document.getElementById('currentFileProgressFill').style.width = pct + '%';
+        document.getElementById('currentFilePercent').textContent = pct.toFixed(1) + '%';
+        document.getElementById('uploadedSize').textContent = uploadedMB + ' MB';
+        document.getElementById('totalSize').textContent = totalMB + ' MB';
+        document.getElementById('uploadSpeed').textContent = speed.toFixed(2) + ' MB/s';
+        document.getElementById('uploadETA').textContent = eta;
+      }
+    });
+
+    xhr.addEventListener('load', function () {
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          createdJobIds.push(data.job_id);
+          completedFiles++;
+        } catch (e) {
+          failedFiles++;
+          showToast('Failed to parse response for "' + file.name + '".', 'error');
+        }
+      } else {
+        failedFiles++;
+        var detail = 'Upload failed for "' + file.name + '"';
+        try {
+          var err = JSON.parse(xhr.responseText);
+          if (err.detail) detail = err.detail;
+        } catch (_) { }
+        showToast(detail, 'error');
+      }
+      currentXHR = null;
+      uploadNext(index + 1);
+    });
+
+    xhr.addEventListener('error', function () {
+      failedFiles++;
+      showToast('Network error uploading "' + file.name + '".', 'error');
+      currentXHR = null;
+      uploadNext(index + 1);
+    });
+
+    xhr.addEventListener('abort', function () {
+      // Upload was cancelled — stop the chain
+      isUploading = false;
+      currentXHR = null;
+      resetUploadUI();
+      var remaining = totalFiles - completedFiles - failedFiles;
+      showToast('Upload cancelled. ' + remaining + ' file(s) skipped.', 'warning');
+      if (completedFiles > 0) {
+        showJobsPage();
+      }
+    });
+
+    var uploadUrl = engine === 'riva'
+      ? API_BASE_URL + '/api/riva/jobs'
+      : API_BASE_URL + '/api/jobs';
+    xhr.open('POST', uploadUrl, true);
+    xhr.withCredentials = true;
+    xhr.send(form);
+  }
+
+  uploadNext(0);
 }
 
 function cancelUpload() {
   if (currentXHR) {
     currentXHR.abort();
-    resetUploadUI();
   }
 }
 
 function resetUploadUI() {
   var uploadBtn = document.getElementById('uploadBtn');
   var cancelBtn = document.getElementById('cancelUploadBtn');
-  var progressSection = document.getElementById('uploadProgressSection');
+  var batchSection = document.getElementById('batchProgressSection');
 
   uploadBtn.style.display = 'flex';
   cancelBtn.style.display = 'none';
-  progressSection.style.display = 'none';
+  batchSection.style.display = 'none';
 
-  document.getElementById('uploadProgressFill').style.width = '0%';
-  document.getElementById('uploadPercentDisplay').textContent = '0%';
+  document.getElementById('batchProgressFill').style.width = '0%';
+  document.getElementById('batchPercentDisplay').textContent = '0%';
+  document.getElementById('batchProgressTitle').textContent = 'Uploading…';
+
+  var cfp = document.getElementById('currentFileProgress');
+  cfp.style.display = 'none';
+  document.getElementById('currentFileProgressFill').style.width = '0%';
+  document.getElementById('currentFilePercent').textContent = '0%';
   document.getElementById('uploadedSize').textContent = '0 MB';
   document.getElementById('totalSize').textContent = '0 MB';
   document.getElementById('uploadSpeed').textContent = '0 MB/s';
@@ -917,7 +1028,7 @@ function downloadSubtitles() {
 
 function resetForm() {
   jobId = null;
-  clearFile();
+  clearFiles();
   document.getElementById('language').value = '';
   document.getElementById('languageSearch').value = '';
   document.getElementById('languageSearch').placeholder = 'Auto-detect';

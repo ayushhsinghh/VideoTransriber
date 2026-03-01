@@ -116,11 +116,11 @@
       <!-- Authenticated State -->
       <div id="uploadAuthContent">
         <h2 class="page-title">Upload & Transcribe</h2>
-        <p class="page-subtitle">Select a video or audio file to generate subtitles</p>
+        <p class="page-subtitle">Select one or more video or audio files to generate subtitles</p>
 
         <!-- Dropzone -->
         <div id="dropzone" class="dropzone">
-          <input type="file" id="file" accept="video/*,audio/*" />
+          <input type="file" id="file" accept="video/*,audio/*" multiple />
           <div class="dropzone-content">
             <div class="dropzone-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
@@ -130,25 +130,14 @@
                   stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </div>
-            <p class="dropzone-label">Drop file here or <span class="text-accent">browse</span></p>
-            <p class="dropzone-hint">MP4, MKV, AVI, MOV, MP3, WAV — up to 5 GB</p>
-          </div>
-          <div id="filePreview" class="file-preview" style="display:none;">
-            <div class="file-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
-                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M14 2V8H20M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="1.5"
-                  stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </div>
-            <div class="file-meta">
-              <span id="fileName" class="file-name"></span>
-              <span id="fileSize" class="file-size"></span>
-            </div>
-            <button class="file-remove" onclick="clearFile()" aria-label="Remove file">&times;</button>
+            <p class="dropzone-label">Drop files here or <span class="text-accent">browse</span></p>
+            <p class="dropzone-hint">MP4, MKV, AVI, MOV, MP3, WAV — up to 5 GB each</p>
+            <span id="fileCountBadge" class="file-count-badge" style="display:none;"></span>
           </div>
         </div>
+
+        <!-- Selected files list -->
+        <div id="fileList" class="file-list" style="display:none;"></div>
 
         <!-- Engine selector -->
         <div class="field" style="margin-bottom: 20px;">
@@ -208,24 +197,34 @@
           <span class="toggle-label">Translate subtitles to English</span>
         </label>
 
-        <!-- Upload progress -->
-        <div id="uploadProgressSection" class="progress-card" style="display:none;">
+        <!-- Batch upload progress -->
+        <div id="batchProgressSection" class="progress-card" style="display:none;">
           <div class="progress-card-header">
-            <span class="progress-title">Uploading…</span>
-            <span id="uploadPercentDisplay" class="progress-pct">0%</span>
+            <span id="batchProgressTitle" class="progress-title">Uploading…</span>
+            <span id="batchPercentDisplay" class="progress-pct">0%</span>
           </div>
           <div class="progress-track">
-            <div id="uploadProgressFill" class="progress-fill"></div>
+            <div id="batchProgressFill" class="progress-fill"></div>
           </div>
-          <div class="progress-stats">
-            <div class="stat"><span class="stat-label">Uploaded</span><span id="uploadedSize" class="stat-val">0
-                MB</span>
+
+          <!-- Per-file progress card -->
+          <div id="currentFileProgress" class="current-file-progress" style="display:none;">
+            <div class="current-file-header">
+              <span id="currentFileName" class="current-file-name">—</span>
+              <span id="currentFilePercent" class="progress-pct">0%</span>
             </div>
-            <div class="stat"><span class="stat-label">Total</span><span id="totalSize" class="stat-val">0 MB</span>
+            <div class="progress-track">
+              <div id="currentFileProgressFill" class="progress-fill"></div>
             </div>
-            <div class="stat"><span class="stat-label">Speed</span><span id="uploadSpeed" class="stat-val">0 MB/s</span>
-            </div>
-            <div class="stat"><span class="stat-label">ETA</span><span id="uploadETA" class="stat-val">--:--</span>
+            <div class="progress-stats">
+              <div class="stat"><span class="stat-label">Uploaded</span><span id="uploadedSize" class="stat-val">0
+                  MB</span></div>
+              <div class="stat"><span class="stat-label">Total</span><span id="totalSize" class="stat-val">0 MB</span>
+              </div>
+              <div class="stat"><span class="stat-label">Speed</span><span id="uploadSpeed" class="stat-val">0
+                  MB/s</span></div>
+              <div class="stat"><span class="stat-label">ETA</span><span id="uploadETA" class="stat-val">--:--</span>
+              </div>
             </div>
           </div>
         </div>
