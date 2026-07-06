@@ -874,9 +874,12 @@ function upload() {
       }
     });
 
-    var uploadUrl = engine === 'riva'
-      ? API_BASE_URL + '/api/riva/jobs'
-      : API_BASE_URL + '/api/jobs';
+    var uploadUrl = API_BASE_URL + '/api/jobs';
+    if (engine === 'riva') {
+      uploadUrl = API_BASE_URL + '/api/riva/jobs';
+    } else if (engine === 'openai') {
+      uploadUrl = API_BASE_URL + '/api/openai/jobs';
+    }
     xhr.open('POST', uploadUrl, true);
     xhr.withCredentials = true;
     xhr.send(form);
