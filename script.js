@@ -695,6 +695,7 @@ function showStatusPage() {
 }
 
 function hideAllPages() {
+  if (typeof GeminiFlow !== 'undefined') GeminiFlow.resetView();
   ['homePage', 'uploadPage', 'statusPage', 'jobsPage', 'authPage'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -714,6 +715,7 @@ function setBackBtn(visible) {
 // ── Engine Selector ─────────────────────────────────────────────────────
 
 function selectEngine(engine) {
+  GeminiFlow.select(engine);
   var buttons = document.querySelectorAll('.engine-option');
   buttons.forEach(function (btn) {
     btn.classList.toggle('active', btn.dataset.engine === engine);
@@ -736,6 +738,7 @@ function upload() {
   }
 
   if (isUploading) return;
+  if (!GeminiFlow.validate(document.getElementById('engine').value)) return;
   isUploading = true;
 
   var engine = document.getElementById('engine').value;
@@ -802,6 +805,7 @@ function upload() {
     if (language) form.append('language', language);
     if (engine === 'whisper') form.append('model', model);
     form.append('translate', translate ? 'on' : 'off');
+    if (engine === 'gemini') GeminiFlow.append(form);
 
     var xhr = new XMLHttpRequest();
     currentXHR = xhr;
@@ -875,7 +879,9 @@ function upload() {
     });
 
     var uploadUrl = API_BASE_URL + '/api/jobs';
-    if (engine === 'riva') {
+    if (engine === 'gemini') {
+      uploadUrl = API_BASE_URL + '/api/gemini/jobs';
+    } else if (engine === 'riva') {
       uploadUrl = API_BASE_URL + '/api/riva/jobs';
     } else if (engine === 'openai') {
       uploadUrl = API_BASE_URL + '/api/openai/jobs';
@@ -940,6 +946,7 @@ async function checkStatus() {
     if (!res.ok) throw new Error('Failed to get job status');
 
     var data = await res.json();
+    if (GeminiFlow.status(data)) return;
 
     // Store original filename for download
     currentOriginalFilename = data.original_filename || null;
@@ -1050,6 +1057,12 @@ function resetForm() {
 
 // ── Jobs List ───────────────────────────────────────────────────────────
 
+function escapeJobHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+  });
+}
+
 async function loadAndDisplayJobs() {
   var grid = document.getElementById('jobsGrid');
 
@@ -1088,22 +1101,23 @@ async function loadAndDisplayJobs() {
     }
 
     grid.innerHTML = jobs.map(function (job) {
+      var args = escapeJobHtml(JSON.stringify(job.job_id) + ',' + JSON.stringify(job.original_filename || ''));
       return (
         '<div class="job-card">' +
         '<div class="job-card-header">' +
-        '<span class="job-card-id">' + (job.original_filename || job.video || job.job_id) + '</span>' +
-        '<span class="job-card-status ' + job.status + '">' + job.status + '</span>' +
+        '<span class="job-card-id">' + escapeJobHtml(job.original_filename || job.video || job.job_id) + '</span>' +
+        '<span class="job-card-status ' + escapeJobHtml(job.status) + '">' + escapeJobHtml(job.status) + '</span>' +
         '</div>' +
         '<div class="job-card-details">' +
         '<div>Created: ' + new Date(job.created_at).toLocaleString() + '</div>' +
-        (job.language ? '<div>Language: ' + job.language + '</div>' : '') +
+        ((job.target_language || job.language) ? '<div>Language: ' + escapeJobHtml(job.target_language || job.language) + '</div>' : '') +
         (job.detected_language ? '<div>Detected: ' + job.detected_language.toUpperCase() + '</div>' : '') +
         (job.progress_percentage !== undefined ? '<div>Progress: ' + job.progress_percentage + '%</div>' : '') +
         '</div>' +
         '<div class="job-card-actions">' +
-        '<button class="btn btn-ghost btn-sm" onclick="viewJobStatus(\'' + job.job_id + '\', \'' + (job.original_filename || '').replace(/'/g, "\\'") + '\')">View</button>' +
-        (job.status === 'done'
-          ? '<button class="btn btn-accent btn-sm" onclick="downloadJobSubtitles(\'' + job.job_id + '\', \'' + (job.original_filename || '').replace(/'/g, "\\'") + '\')">Download</button>'
+        '<button class="btn btn-ghost btn-sm" onclick="viewJobStatus(' + args + ')">View</button>' +
+        (job.status === 'done' && job.engine !== 'gemini_translate'
+          ? '<button class="btn btn-accent btn-sm" onclick="downloadJobSubtitles(' + args + ')">Download</button>'
           : '') +
         '</div>' +
         '</div>'

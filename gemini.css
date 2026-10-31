@@ -1,0 +1,22 @@
+/* Extend SubForge's existing dark controls and typography. */
+[hidden] { display: none !important; }
+.engine-toggle { flex-wrap: wrap; }
+.gemini-options { margin-bottom: 24px; }
+.gemini-options .field { margin-bottom: 16px; }
+.gemini-options input[type="text"] { width: 100%; padding: 13px 16px; border: 1px solid #35353d; border-radius: 12px; background: #1e1e1e; color: #e8e8ec; font: inherit; font-size: 16px; }
+.gemini-options input:focus-visible, .gemini-result :is(a, button, audio):focus-visible { outline: 2px solid #7b8cde; outline-offset: 4px; }
+.gemini-note { color: #9ca3af; font-size: .875rem; line-height: 1.7; margin: 12px 0; }
+.gemini-result { padding: 24px; margin: 24px 0; border-radius: 16px; border: 1px solid #35353d; background: #1e1e1e; overflow-wrap: anywhere; }
+.gemini-result h2 { color: #e8e8ec; font-size: 1.1rem; margin-bottom: 12px; }
+.gemini-result audio { display: block; width: 100%; margin: 20px 0; }
+.gemini-result p { line-height: 1.7; }
+.gemini-result ul { padding-left: 20px; color: #d5c9ab; font-size: .875rem; }
+.gemini-downloads, .gemini-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.gemini-downloads a { text-decoration: none; }
+.gemini-result button, .gemini-options button { touch-action: manipulation; }
+@media (max-width: 600px) { .gemini-result { padding: 18px; } .gemini-downloads a { flex: 1 1 42%; } }
+
+.engine-toggle { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.engine-option { min-width: 0; flex-wrap: wrap; overflow-wrap: anywhere; }
+.gemini-options .toggle-label { min-width: 0; }
+.gemini-options .toggle-track { flex-shrink: 0; }

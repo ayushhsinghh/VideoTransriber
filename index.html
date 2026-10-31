@@ -13,6 +13,7 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="gemini.css" />
 </head>
 
 <body>
@@ -143,6 +144,7 @@
         <div class="field" style="margin-bottom: 20px;">
           <label>Engine</label>
           <div class="engine-toggle" id="engineToggle">
+            <button type="button" id="geminiEngine" hidden class="engine-option" data-engine="gemini" onclick="selectEngine('gemini')">Gemini Audio Translation <span class="engine-badge">Preview</span></button>
             <button type="button" class="engine-option active" data-engine="whisper" onclick="selectEngine('whisper')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path d="M12 1C5.925 1 1 5.925 1 12s4.925 11 11 11 11-4.925 11-11S18.075 1 12 1z" stroke="currentColor"
@@ -171,6 +173,17 @@
           </div>
         </div>
         <input type="hidden" id="engine" value="whisper" />
+
+        <section id="geminiOptions" class="gemini-options" hidden aria-label="Gemini translation options">
+          <div class="field"><label for="geminiTarget">Translate speech into</label>
+            <input id="geminiTarget" type="text" list="geminiLanguageOptions" autocomplete="off" placeholder="Search target languages" />
+            <datalist id="geminiLanguageOptions"></datalist>
+          </div>
+          <label class="toggle-row"><input type="checkbox" id="geminiSubtitles" checked /><span class="toggle-track"><span class="toggle-thumb"></span></span><span class="toggle-label">Create translated SRT and VTT subtitles</span></label>
+          <p class="gemini-note">Voice matching is best effort. Music and sound effects are not preserved. WAV duration matches the video; longer translations may play faster. A three-hour video can take three hours or longer.</p>
+          <p id="geminiSubtitleNotice" class="gemini-note" role="status"></p>
+        </section>
+        <button id="geminiResume" class="btn btn-ghost" type="button" hidden>Return to last audio translation</button>
 
         <!-- Options row -->
         <div class="options-grid">
@@ -298,6 +311,14 @@
         <div id="errorMessage" class="error-banner" style="display:none;"></div>
       </div>
 
+      <section id="geminiResult" class="gemini-result" hidden aria-label="Translated audio">
+        <h2>Translated audio</h2><p id="geminiStatusText" role="status" aria-live="polite"></p>
+        <button id="geminiSignIn" class="btn btn-ghost" hidden onclick="toggleAuthModal()">Sign in again</button>
+        <audio id="geminiAudio" controls preload="none" crossorigin="use-credentials" hidden></audio>
+        <div id="geminiDownloads" class="gemini-downloads"></div><ul id="geminiWarnings"></ul>
+        <div class="gemini-actions"><button id="geminiCancel" class="btn btn-ghost" type="button" hidden>Cancel translation</button><button id="geminiRetry" class="btn btn-accent" type="button" hidden>Retry from saved progress</button></div>
+        <p class="gemini-note">WAV is the exact-duration master. MP3 players can report minor timing differences from encoder padding.</p>
+      </section>
       <div class="action-row">
         <button id="checkStatusBtn" class="btn btn-ghost btn-lg btn-full" onclick="checkStatus()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -458,6 +479,7 @@
   </div> <!-- /app-shell -->
 
   <script src="script.js"></script>
+  <script src="gemini.js"></script>
 </body>
 
 </html>
