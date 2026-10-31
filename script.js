@@ -715,7 +715,7 @@ function setBackBtn(visible) {
 // ── Engine Selector ─────────────────────────────────────────────────────
 
 function selectEngine(engine) {
-  GeminiFlow.select(engine);
+  if (typeof GeminiFlow !== 'undefined') GeminiFlow.select(engine);
   var buttons = document.querySelectorAll('.engine-option');
   buttons.forEach(function (btn) {
     btn.classList.toggle('active', btn.dataset.engine === engine);
@@ -738,7 +738,13 @@ function upload() {
   }
 
   if (isUploading) return;
-  if (!GeminiFlow.validate(document.getElementById('engine').value)) return;
+  var requestedEngine = document.getElementById('engine').value;
+  if (typeof GeminiFlow === 'undefined') {
+    if (requestedEngine === 'gemini') {
+      showToast('The Gemini upload controls did not load. Refresh the page and try again.', 'error');
+      return;
+    }
+  } else if (!GeminiFlow.validate(requestedEngine)) return;
   isUploading = true;
 
   var engine = document.getElementById('engine').value;
@@ -759,6 +765,21 @@ function upload() {
   var completedFiles = 0;
   var failedFiles = 0;
   var createdJobIds = [];
+  var failedUploadFiles = [];
+  var uploadFailures = [];
+  var errorPanel = document.getElementById('uploadErrors');
+  if (errorPanel) { errorPanel.textContent = ''; errorPanel.style.display = 'none'; }
+
+  function failUpload(file, message) {
+    failedFiles++;
+    failedUploadFiles.push(file);
+    uploadFailures.push(file.name + ': ' + message);
+    if (errorPanel) {
+      errorPanel.textContent = uploadFailures.join('\n');
+      errorPanel.style.display = 'block';
+    }
+    showToast(message, 'error');
+  }
 
   function updateBatchProgress() {
     var pct = Math.round(((completedFiles + failedFiles) / totalFiles) * 100);
@@ -773,7 +794,12 @@ function upload() {
       // All done
       isUploading = false;
       resetUploadUI();
-      clearFiles();
+      if (failedUploadFiles.length) {
+        selectedFiles = failedUploadFiles;
+        renderFileList();
+      } else {
+        clearFiles();
+      }
 
       if (completedFiles > 0) {
         var msg = completedFiles + ' file' + (completedFiles > 1 ? 's' : '') + ' uploaded successfully!';
@@ -837,31 +863,39 @@ function upload() {
     });
 
     xhr.addEventListener('load', function () {
-      if (xhr.status === 200) {
+      if (xhr.status >= 200 && xhr.status < 300) {
         try {
           var data = JSON.parse(xhr.responseText);
+          if (!data || typeof data.job_id !== 'string' || !data.job_id.trim()) {
+            throw new Error('The response does not contain a job ID.');
+          }
           createdJobIds.push(data.job_id);
           completedFiles++;
         } catch (e) {
-          failedFiles++;
-          showToast('Failed to parse response for "' + file.name + '".', 'error');
+          failUpload(file, 'The server accepted the request but returned no valid job ID. Check your job history before uploading again.');
         }
       } else {
-        failedFiles++;
-        var detail = 'Upload failed for "' + file.name + '"';
+        var fallback = {
+          401: 'Your session expired. Sign in again; any queued jobs are kept.',
+          403: 'This upload is not permitted. Sign in again or check your access.',
+          413: 'This file exceeds the server upload limit.',
+          429: 'The upload limit has been reached. Check your job history before retrying.',
+          503: 'The selected engine is unavailable on the server.'
+        };
+        var detail = fallback[xhr.status] || 'The server could not accept this upload.';
         try {
           var err = JSON.parse(xhr.responseText);
-          if (err.detail) detail = err.detail;
+          if (typeof err.detail === 'string' && !fallback[xhr.status]) detail = err.detail;
+          else if (Array.isArray(err.detail)) detail = err.detail.map(function (item) { return item.msg || 'Invalid upload field'; }).join('; ');
         } catch (_) { }
-        showToast(detail, 'error');
+        failUpload(file, detail + ' (HTTP ' + xhr.status + ')');
       }
       currentXHR = null;
       uploadNext(index + 1);
     });
 
     xhr.addEventListener('error', function () {
-      failedFiles++;
-      showToast('Network error uploading "' + file.name + '".', 'error');
+      failUpload(file, 'The upload connection failed. Check your connection and job history before retrying.');
       currentXHR = null;
       uploadNext(index + 1);
     });
@@ -946,7 +980,7 @@ async function checkStatus() {
     if (!res.ok) throw new Error('Failed to get job status');
 
     var data = await res.json();
-    if (GeminiFlow.status(data)) return;
+    if (typeof GeminiFlow !== 'undefined' && GeminiFlow.status(data)) return;
 
     // Store original filename for download
     currentOriginalFilename = data.original_filename || null;
