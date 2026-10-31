@@ -46,11 +46,11 @@ var GeminiFlow = (function () {
   }
   function select(engine) {
     visible('geminiOptions', engine === 'gemini');
-    document.querySelector('#uploadAuthContent .page-title').textContent = engine === 'gemini' ? 'Translate video audio' : 'Upload & Transcribe';
-    document.querySelector('#uploadAuthContent .page-subtitle').textContent = engine === 'gemini' ? 'Upload a video to create translated audio and optional subtitles' : 'Select one or more video or audio files to generate subtitles';
-    el('file').accept = engine === 'gemini' ? 'video/*' : 'video/*,audio/*';
+    document.querySelector('#uploadAuthContent .page-title').textContent = engine === 'gemini' ? 'Translate video or audio' : 'Upload & Transcribe';
+    document.querySelector('#uploadAuthContent .page-subtitle').textContent = engine === 'gemini' ? 'Upload a video or audio file, including MP3, to create translated audio and optional subtitles' : 'Select one or more video or audio files to generate subtitles';
+    el('file').accept = 'video/*,audio/*';
     el('uploadBtn').lastChild.textContent = engine === 'gemini' ? ' Start audio translation' : ' Start Transcription';
-    document.querySelector('.dropzone-hint').textContent = engine === 'gemini' ? 'Videos up to 6 GB · duration up to 6 hours' : 'MP4, MKV, AVI, MOV, MP3, WAV — up to 6 GB each';
+    document.querySelector('.dropzone-hint').textContent = engine === 'gemini' ? 'Video or audio, including MP3 · up to 6 GB and 6 hours' : 'MP4, MKV, AVI, MOV, MP3, WAV — up to 6 GB each';
     var sourceField = el('languageSearch').closest('.field');
     sourceField.hidden = engine === 'gemini';
     el('translate').closest('.toggle-row').hidden = engine === 'gemini';

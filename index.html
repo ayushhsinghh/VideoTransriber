@@ -74,7 +74,7 @@
             <path d="M12 16V4M12 4L8 8M12 4L16 8M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17"
               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          Upload Video
+          Upload Video or Audio
         </button>
         <button id="homeJobsBtn" class="btn btn-ghost btn-lg" onclick="showJobsPage()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -109,7 +109,7 @@
             </svg>
           </div>
           <h3>Login Required</h3>
-          <p>Please log in to your account to upload and transcribe new videos.</p>
+          <p>Please log in to your account to upload and transcribe video or audio files.</p>
           <button class="btn btn-accent" onclick="toggleAuthModal()">Log In to Continue</button>
         </div>
       </div>
@@ -180,7 +180,7 @@
             <datalist id="geminiLanguageOptions"></datalist>
           </div>
           <label class="toggle-row"><input type="checkbox" id="geminiSubtitles" checked /><span class="toggle-track"><span class="toggle-thumb"></span></span><span class="toggle-label">Create translated SRT and VTT subtitles</span></label>
-          <p class="gemini-note">Voice matching is best effort. Music and sound effects are not preserved. WAV duration matches the video; longer translations may play faster. A three-hour video can take three hours or longer.</p>
+          <p class="gemini-note">Voice matching is best effort. Music and sound effects are not preserved. WAV duration matches the source; longer translations may play faster. A three-hour file can take three hours or longer.</p>
           <p id="geminiSubtitleNotice" class="gemini-note" role="status"></p>
         </section>
         <button id="geminiResume" class="btn btn-ghost" type="button" hidden>Return to last audio translation</button>
